@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meal Planner - Inventory</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🍽️ Meal Planner Inventory</h1>
+            <p class="subtitle">Upload voice transcriptions and manage your food inventory</p>
+        </header>
+
+        <main>
+            <!-- Upload Section -->
+            <section class="card upload-section">
+                <h2>Upload Transcription or Receipt</h2>
+                <p class="description">Upload a .txt file from Google Recorder or a .pdf receipt</p>
+
+                <div class="upload-area" id="uploadArea">
+                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                        <polyline points="17 8 12 3 7 8"></polyline>
+                        <line x1="12" y1="3" x2="12" y2="15"></line>
+                    </svg>
+                    <p>Drag and drop your .txt or .pdf file here or click to select</p>
+                    <input type="file" id="fileInput" accept=".txt,.pdf" hidden>
+                </div>
+
+                <button id="uploadBtn" class="btn btn-primary" style="display: none;">Upload</button>
+                <div id="uploadStatus" class="status-message"></div>
+            </section>
+
+            <!-- Inventory Section -->
+            <section class="card inventory-section">
+                <div class="section-header">
+                    <h2>Current Inventory</h2>
+                    <div class="controls">
+                        <span class="item-count" id="itemCount">0 items</span>
+                        <button id="clearBtn" class="btn btn-danger-small" title="Clear all items">Clear All</button>
+                    </div>
+                </div>
+
+                <div id="inventoryContainer" class="inventory-container">
+                    <p class="empty-state">No items in inventory. Upload a transcription to get started!</p>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>Meal Planner v1.0 • Local Application</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

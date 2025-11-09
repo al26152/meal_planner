@@ -517,4 +517,3 @@ Personal project. Use and modify as needed.
 ## Support
 
 For issues or questions, refer to the main `README.md` or check the code comments.
-

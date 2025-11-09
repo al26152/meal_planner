@@ -45,3 +45,8 @@ MANIFEST
 # OS
 .DS_Store
 Thumbs.db
+
+# Local session/documentation
+SESSION_SUMMARY.md
+PROGRESS.md
+*.local.md

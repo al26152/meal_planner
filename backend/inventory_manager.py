@@ -124,6 +124,8 @@ class InventoryManager:
         for item in inventory:
             if item["id"] == item_id:
                 # Update allowed fields
+                if "name" in kwargs:
+                    item["name"] = kwargs["name"].lower().strip()
                 if "quantity" in kwargs:
                     item["quantity"] = kwargs["quantity"]
                 if "unit" in kwargs:

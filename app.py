@@ -119,6 +119,7 @@ def update_item(item_id):
 
         updated_item = InventoryManager.update_item(
             item_id,
+            name=data.get('name'),
             quantity=data.get('quantity'),
             unit=data.get('unit'),
             notes=data.get('notes'),

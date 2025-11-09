@@ -169,6 +169,14 @@ function displayInventory(items) {
 
     inventoryContainer.innerHTML = html;
 
+    // Add edit event listeners
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            editItem(btn.dataset.itemId);
+        });
+    });
+
     // Add delete event listeners
     document.querySelectorAll('.delete-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -183,7 +191,10 @@ function createInventoryItemHTML(item) {
 
     return `
         <div class="inventory-item">
-            <button class="delete-btn" data-item-id="${item.id}" title="Delete item">×</button>
+            <div class="item-actions">
+                <button class="edit-btn" data-item-id="${item.id}" title="Edit item">✎</button>
+                <button class="delete-btn" data-item-id="${item.id}" title="Delete item">×</button>
+            </div>
             <div class="item-name">${escapeHTML(item.name)}</div>
             <div class="item-details">
                 <div class="item-detail">
@@ -208,6 +219,125 @@ function updateItemCount(count) {
 }
 
 // ===== Item Management =====
+
+async function editItem(itemId) {
+    // Find the item in the DOM
+    const items = document.querySelectorAll('.inventory-item');
+    let itemData = null;
+
+    // Get current item data by parsing the DOM (simple approach)
+    // For a better solution, we'd store this in the HTML data attributes
+    for (let item of items) {
+        const editBtn = item.querySelector(`[data-item-id="${itemId}"]`);
+        if (editBtn) {
+            // Extract data from displayed item
+            const name = item.querySelector('.item-name').textContent;
+            const quantityText = item.querySelector('.item-details .item-detail:nth-child(1) .detail-value').textContent;
+            const [quantity, unit] = quantityText.split(' ');
+            const category = item.querySelector('.item-details .item-detail:nth-child(2) .detail-value').textContent;
+            const notes = ''; // Add notes from data attribute if available
+
+            itemData = { id: itemId, name, quantity, unit, category, notes };
+            break;
+        }
+    }
+
+    if (!itemData) return;
+
+    // Create modal
+    const modal = document.createElement('div');
+    modal.className = 'edit-modal';
+    modal.innerHTML = `
+        <div class="edit-modal-content">
+            <h3>Edit Item</h3>
+            <form id="editForm">
+                <div class="form-group">
+                    <label>Item Name</label>
+                    <input type="text" id="editName" value="${escapeHTML(itemData.name)}" required>
+                </div>
+                <div class="form-group">
+                    <label>Quantity</label>
+                    <input type="number" id="editQuantity" value="${itemData.quantity}" step="0.1" required>
+                </div>
+                <div class="form-group">
+                    <label>Unit</label>
+                    <input type="text" id="editUnit" value="${escapeHTML(itemData.unit)}" required>
+                </div>
+                <div class="form-group">
+                    <label>Category</label>
+                    <select id="editCategory" required>
+                        <option value="dairy" ${itemData.category === 'dairy' ? 'selected' : ''}>Dairy</option>
+                        <option value="meat" ${itemData.category === 'meat' ? 'selected' : ''}>Meat</option>
+                        <option value="produce" ${itemData.category === 'produce' ? 'selected' : ''}>Produce</option>
+                        <option value="pantry" ${itemData.category === 'pantry' ? 'selected' : ''}>Pantry</option>
+                        <option value="bakery" ${itemData.category === 'bakery' ? 'selected' : ''}>Bakery</option>
+                        <option value="snacks" ${itemData.category === 'snacks' ? 'selected' : ''}>Snacks</option>
+                        <option value="beverages" ${itemData.category === 'beverages' ? 'selected' : ''}>Beverages</option>
+                        <option value="frozen" ${itemData.category === 'frozen' ? 'selected' : ''}>Frozen</option>
+                        <option value="other" ${itemData.category === 'other' ? 'selected' : ''}>Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="editNotes" placeholder="Add notes about this item" style="width: 100%; min-height: 60px;">${escapeHTML(itemData.notes)}</textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" class="btn btn-secondary" onclick="this.closest('.edit-modal').remove()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Handle form submission
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const name = document.getElementById('editName').value;
+        const quantity = parseFloat(document.getElementById('editQuantity').value);
+        const unit = document.getElementById('editUnit').value;
+        const category = document.getElementById('editCategory').value;
+        const notes = document.getElementById('editNotes').value;
+
+        try {
+            const response = await fetch(`/api/inventory/${itemId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name,
+                    quantity,
+                    unit,
+                    category,
+                    notes
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                modal.remove();
+                loadInventory();
+                showStatus('✓ Item updated successfully', 'success');
+            } else {
+                showStatus(`✗ Error: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Edit error:', error);
+            showStatus('✗ Error updating item', 'error');
+        }
+    });
+
+    // Close modal on outside click
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+}
 
 async function deleteItem(itemId) {
     if (!confirm('Are you sure you want to delete this item?')) {

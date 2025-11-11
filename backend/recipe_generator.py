@@ -123,7 +123,8 @@ Do not include any other text. Return only the JSON array with {num_meals} recip
                 }
             ],
             temperature=0.7,  # Higher temperature for creativity in meal planning
-            max_tokens=3000
+            max_tokens=3000,
+            timeout=60.0  # 60 second timeout
         )
 
         response_text = response.choices[0].message.content.strip()
@@ -222,7 +223,8 @@ Do not include any other text. Return only the JSON object."""
                 }
             ],
             temperature=0.7,
-            max_tokens=1500
+            max_tokens=1500,
+            timeout=60.0  # 60 second timeout
         )
 
         response_text = response.choices[0].message.content.strip()

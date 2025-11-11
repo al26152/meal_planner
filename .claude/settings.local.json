@@ -10,7 +10,9 @@
       "Bash(curl:*)",
       "Bash(python app.py:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)"
     ],
     "deny": [],
     "ask": []

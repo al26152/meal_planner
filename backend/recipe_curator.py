@@ -83,7 +83,8 @@ Be concise. Return ONLY valid JSON, no markdown or explanation."""
                 }
             ],
             temperature=0.7,  # Moderate creativity for curation
-            max_tokens=2000
+            max_tokens=2000,
+            timeout=60.0  # 60 second timeout for API call
         )
 
         response_text = response.choices[0].message.content.strip()

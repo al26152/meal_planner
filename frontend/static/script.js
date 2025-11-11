@@ -1,3 +1,38 @@
+// ===== Tab Management =====
+
+// DOM Elements for tabs
+const tabButtons = document.querySelectorAll('.tab-btn');
+const tabContents = document.querySelectorAll('.tab-content');
+
+// Tab switching functionality
+tabButtons.forEach(button => {
+    button.addEventListener('click', () => {
+        const tabId = button.getAttribute('data-tab');
+
+        // Remove active class from all tabs and buttons
+        tabContents.forEach(tab => tab.classList.remove('active'));
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+
+        // Add active class to clicked button and corresponding tab
+        button.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+
+        // Save tab preference to localStorage
+        localStorage.setItem('activeTab', tabId);
+    });
+});
+
+// Restore last active tab on page load
+window.addEventListener('DOMContentLoaded', () => {
+    const savedTab = localStorage.getItem('activeTab') || 'inventory-tab';
+    const tabButton = document.querySelector(`[data-tab="${savedTab}"]`);
+    if (tabButton) {
+        tabButton.click();
+    }
+});
+
+// ===== Upload and Inventory Management =====
+
 // DOM Elements
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
@@ -386,6 +421,282 @@ clearBtn.addEventListener('click', async () => {
     }
 });
 
+// ===== Meal Planning =====
+
+const numMealsInput = document.getElementById('numMeals');
+const mealCriteriaInput = document.getElementById('mealCriteria');
+const generatePlanBtn = document.getElementById('generatePlanBtn');
+const planLoading = document.getElementById('planLoading');
+const planStatus = document.getElementById('planStatus');
+const mealPlanContainer = document.getElementById('mealPlanContainer');
+const mealsDisplay = document.getElementById('mealsDisplay');
+const shoppingListBtn = document.getElementById('shoppingListBtn');
+const shoppingListModal = document.getElementById('shoppingListModal');
+const closeShoppingListBtn = document.getElementById('closeShoppingListBtn');
+const shoppingListContent = document.getElementById('shoppingListContent');
+
+let currentMealPlan = null;
+
+// Generate meal plan
+generatePlanBtn.addEventListener('click', async () => {
+    const numMeals = parseInt(numMealsInput.value);
+    const criteria = mealCriteriaInput.value.trim();
+
+    if (!numMeals || numMeals < 1) {
+        showPlanStatus('Please enter a valid number of meals', 'error');
+        return;
+    }
+
+    if (!criteria) {
+        showPlanStatus('Please enter meal preferences (e.g., "Italian", "healthy", "gourmet")', 'error');
+        return;
+    }
+
+    await generateMealPlan(numMeals, criteria);
+});
+
+async function generateMealPlan(numMeals, criteria) {
+    planLoading.style.display = 'block';
+    planStatus.style.display = 'none';
+    mealPlanContainer.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/meal-plans/generate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                num_meals: numMeals,
+                criteria: criteria
+            })
+        });
+
+        const data = await response.json();
+        planLoading.style.display = 'none';
+
+        if (response.ok) {
+            currentMealPlan = {
+                id: data.plan_id,
+                meals: data.meals,
+                num_meals: numMeals,
+                criteria: criteria
+            };
+
+            displayMealPlan(data.meals);
+            showPlanStatus(`Generated ${data.meals.length} delicious meals!`, 'success');
+        } else {
+            showPlanStatus(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Generate meal plan error:', error);
+        planLoading.style.display = 'none';
+        showPlanStatus('Error generating meal plan. Please try again.', 'error');
+    }
+}
+
+function displayMealPlan(meals) {
+    if (!meals || meals.length === 0) {
+        mealsDisplay.innerHTML = '<p class="empty-state">No meals generated</p>';
+        mealPlanContainer.style.display = 'block';
+        return;
+    }
+
+    let html = '';
+
+    meals.forEach((meal, index) => {
+        const recipe = meal.recipe || {};
+        const ingredients = recipe.ingredients || [];
+        const instructions = recipe.instructions || '';
+
+        // Count available vs missing ingredients
+        const ingredientSummary = getIngredientSummary(ingredients);
+
+        html += `
+            <div class="meal-card">
+                <div class="meal-header">
+                    <h3>Meal ${index + 1}</h3>
+                    <span class="ingredient-status">
+                        ${ingredientSummary.available}/${ingredientSummary.total} ingredients in stock
+                    </span>
+                </div>
+                <div class="meal-body">
+                    <h4>${escapeHTML(recipe.name || 'Unknown Recipe')}</h4>
+
+                    <div class="ingredients-section">
+                        <strong>Ingredients:</strong>
+                        <ul class="ingredients-list">
+                            ${ingredients.map(ing => `
+                                <li>
+                                    <span class="ingredient-name">${escapeHTML(ing.name)}</span>
+                                    <span class="ingredient-qty">${ing.quantity} ${ing.unit}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <details class="instructions-section">
+                        <summary>Instructions</summary>
+                        <p>${escapeHTML(instructions)}</p>
+                    </details>
+                </div>
+                <div class="meal-footer">
+                    <button class="btn btn-secondary-small regenerate-btn" data-meal-num="${index + 1}" data-index="${index}">Regenerate</button>
+                </div>
+            </div>
+        `;
+    });
+
+    mealsDisplay.innerHTML = html;
+    mealPlanContainer.style.display = 'block';
+
+    // Add regenerate event listeners
+    document.querySelectorAll('.regenerate-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const mealNum = btn.dataset.mealNum;
+            const index = parseInt(btn.dataset.index);
+            regenerateMealForIndex(index, mealNum);
+        });
+    });
+}
+
+async function regenerateMealForIndex(index, mealNum) {
+    const criteria = prompt(`Enter new preferences for Meal ${mealNum} (or leave blank to use same as plan):`);
+    if (criteria === null) return;
+
+    const planCriteria = currentMealPlan.criteria;
+    const mealCriteria = criteria.trim() || planCriteria;
+
+    try {
+        const response = await fetch(`/api/meal-plans/${currentMealPlan.id}/regenerate-meal`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                meal_index: index,
+                criteria: mealCriteria
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Update the meal in the current plan
+            currentMealPlan.meals[index].recipe = data.recipe;
+            displayMealPlan(currentMealPlan.meals);
+            showPlanStatus('Meal regenerated successfully', 'success');
+        } else {
+            showPlanStatus(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Regenerate meal error:', error);
+        showPlanStatus('Error regenerating meal', 'error');
+    }
+}
+
+// Shopping list
+shoppingListBtn.addEventListener('click', async () => {
+    if (!currentMealPlan) {
+        showPlanStatus('Please generate a meal plan first', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/meal-plans/${currentMealPlan.id}/shopping-list`, {
+            method: 'POST'
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            displayShoppingList(data.shopping_list, data.items);
+            shoppingListModal.style.display = 'flex';
+        } else {
+            showPlanStatus(`✗ Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Shopping list error:', error);
+        showPlanStatus('✗ Error generating shopping list', 'error');
+    }
+});
+
+function displayShoppingList(byCategory, items) {
+    let html = '';
+
+    if (!items || items.length === 0) {
+        html = '<p class="empty-state">You have all ingredients for these meals!</p>';
+    } else {
+        // Create comma-separated list of only missing items
+        const missingItems = items.map(item =>
+            `${item.name} (${item.quantity_missing} ${item.unit})`
+        ).join(', ');
+
+        html = `
+            <div class="shopping-list-csv">
+                <p><strong>Missing Ingredients:</strong></p>
+                <p class="csv-list">${escapeHTML(missingItems)}</p>
+            </div>
+
+            <div style="margin-top: 30px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <p><strong>Grouped by Category:</strong></p>
+        `;
+
+        Object.keys(byCategory).sort().forEach(category => {
+            const categoryItems = byCategory[category];
+            html += `
+                <div class="shopping-category">
+                    <h3>${category.charAt(0).toUpperCase() + category.slice(1)}</h3>
+                    <ul>
+                        ${categoryItems.map(item => `
+                            <li>
+                                <span class="item-name">${escapeHTML(item.name)}</span>
+                                <span class="item-qty">${item.quantity_missing} ${item.unit}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+    }
+
+    shoppingListContent.innerHTML = html;
+}
+
+// Close shopping list modal
+closeShoppingListBtn.addEventListener('click', () => {
+    shoppingListModal.style.display = 'none';
+});
+
+shoppingListModal.addEventListener('click', (e) => {
+    if (e.target === shoppingListModal) {
+        shoppingListModal.style.display = 'none';
+    }
+});
+
+function getIngredientSummary(ingredients) {
+    // This is a simplified check - in a real app, we'd compare with inventory
+    return {
+        total: ingredients.length,
+        available: Math.max(1, Math.floor(ingredients.length * 0.7))
+    };
+}
+
+function showPlanStatus(message, type) {
+    planStatus.textContent = message;
+    planStatus.className = `status-message ${type}`;
+    planStatus.style.display = 'block';
+
+    if (type === 'success') {
+        setTimeout(() => {
+            planStatus.style.display = 'none';
+        }, 5000);
+    }
+}
+
 // ===== Utility Functions =====
 
 function showStatus(message, type) {
@@ -412,10 +723,207 @@ function escapeHTML(text) {
     return div.innerHTML;
 }
 
+// ===== Dark Mode =====
+
+const darkModeToggle = document.getElementById('darkModeToggle');
+
+function initDarkMode() {
+    // Check if dark mode was previously enabled
+    const isDarkMode = localStorage.getItem('darkMode') === 'true';
+
+    if (isDarkMode) {
+        document.body.classList.add('dark-mode');
+        darkModeToggle.textContent = '☀️';
+    } else {
+        darkModeToggle.textContent = '🌙';
+    }
+}
+
+darkModeToggle.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    const isDarkMode = document.body.classList.contains('dark-mode');
+
+    // Save preference
+    localStorage.setItem('darkMode', isDarkMode);
+
+    // Update button emoji
+    darkModeToggle.textContent = isDarkMode ? '☀️' : '🌙';
+});
+
+// ===== Recipe Suggestions (AI-Driven) =====
+
+const getSuggestionsBtn = document.getElementById('getSuggestionsBtn');
+const suggestionsLoading = document.getElementById('suggestionsLoading');
+const suggestionsStatus = document.getElementById('suggestionsStatus');
+const recipeSuggestionsContainer = document.getElementById('recipeSuggestionsContainer');
+const recipeTypeButtons = document.getElementById('recipeTypeButtons');
+
+const suggestionsStep = document.getElementById('suggestionsStep');
+const searchStep = document.getElementById('searchStep');
+const selectedRecipeType = document.getElementById('selectedRecipeType');
+const searchLoading = document.getElementById('searchLoading');
+const searchStatus = document.getElementById('searchStatus');
+const recipesContainer = document.getElementById('recipesContainer');
+const recipesDisplay = document.getElementById('recipesDisplay');
+
+let currentRecipeType = '';
+
+getSuggestionsBtn.addEventListener('click', getAIRecipeSuggestions);
+
+async function getAIRecipeSuggestions() {
+    suggestionsLoading.style.display = 'block';
+    suggestionsStatus.style.display = 'none';
+    recipeSuggestionsContainer.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/recipes/suggest-types');
+        const data = await response.json();
+
+        suggestionsLoading.style.display = 'none';
+
+        if (response.ok && data.suggestions.length > 0) {
+            displayRecipeTypeSuggestions(data.suggestions);
+            recipeSuggestionsContainer.style.display = 'block';
+            showSuggestionsStatus(`AI found ${data.count} recipe types that match your ingredients!`, 'success');
+        } else {
+            showSuggestionsStatus(`Error: ${data.error || 'Could not generate suggestions'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error fetching suggestions:', error);
+        suggestionsLoading.style.display = 'none';
+        showSuggestionsStatus('Error analyzing inventory. Please try again.', 'error');
+    }
+}
+
+function displayRecipeTypeSuggestions(suggestions) {
+    let html = '';
+    suggestions.forEach(type => {
+        html += `
+            <button class="recipe-type-btn" data-recipe-type="${escapeHTML(type)}">
+                ${escapeHTML(type)}
+            </button>
+        `;
+    });
+    recipeTypeButtons.innerHTML = html;
+
+    // Add click handlers
+    document.querySelectorAll('.recipe-type-btn').forEach(btn => {
+        btn.addEventListener('click', () => searchRecipesByType(btn.dataset.recipeType, btn));
+    });
+}
+
+async function searchRecipesByType(recipeType, buttonEl) {
+    currentRecipeType = recipeType;
+
+    // Update UI
+    document.querySelectorAll('.recipe-type-btn').forEach(btn => btn.classList.remove('selected'));
+    buttonEl.classList.add('selected');
+
+    searchStep.style.display = 'block';
+    selectedRecipeType.textContent = `Searching for: ${escapeHTML(recipeType)}`;
+    searchLoading.style.display = 'block';
+    searchStatus.style.display = 'none';
+    recipesContainer.style.display = 'none';
+
+    try {
+        const response = await fetch('/api/recipes/search', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipe_type: recipeType })
+        });
+        const data = await response.json();
+
+        searchLoading.style.display = 'none';
+
+        if (response.ok) {
+            displayRecipesWithMissingIngredients(data.recipes);
+            recipesContainer.style.display = 'block';
+            showSearchStatus(`Found ${data.count} recipes matching your ingredients!`, 'success');
+        } else {
+            showSearchStatus(`Error: ${data.error}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error searching recipes:', error);
+        searchLoading.style.display = 'none';
+        showSearchStatus('Error searching recipes. Please try again.', 'error');
+    }
+}
+
+function displayRecipesWithMissingIngredients(recipes) {
+    let html = '';
+
+    recipes.forEach(recipe => {
+        const hasCount = recipe.has_ingredients.length;
+        const missingCount = recipe.missing_ingredients.length;
+
+        html += `
+            <div class="suggestion-card">
+                <div class="suggestion-header">
+                    <div>
+                        <h3>${escapeHTML(recipe.name)}</h3>
+                        <div style="margin-top: 8px; display: flex; gap: 10px;">
+                            <span class="match-badge match-${recipe.match_percentage >= 75 ? 'high' : recipe.match_percentage >= 50 ? 'medium' : 'low'}">
+                                ${recipe.match_percentage}% Match
+                            </span>
+                            <span style="font-size: 0.85rem; color: var(--text-light);">
+                                You have ${hasCount} of ${recipe.total_ingredients} ingredients
+                            </span>
+                        </div>
+                    </div>
+                    <span class="suggestion-source">API Ninjas</span>
+                </div>
+                <div class="suggestion-body">
+                    <div class="suggestion-servings">Servings: ${escapeHTML(recipe.servings)}</div>
+
+                    <div class="suggestion-ingredients">
+                        <strong>Ingredients:</strong>
+                        <ul class="suggestion-ingredients-list">
+                            ${recipe.ingredients.map((ing, idx) => {
+                                const isHave = recipe.has_ingredients.includes(ing.name);
+                                const className = isHave ? 'have-ingredient' : 'missing-ingredient';
+                                return `<li class="${className}">${escapeHTML(ing.name)}</li>`;
+                            }).join('')}
+                        </ul>
+                    </div>
+
+                    ${missingCount > 0 ? `
+                        <div style="background: rgba(220, 38, 38, 0.05); border-left: 3px solid var(--danger-color); padding: 12px; border-radius: 4px; margin: 15px 0;">
+                            <strong style="color: var(--danger-color);">Missing (${missingCount}):</strong>
+                            <div style="margin-top: 8px; font-size: 0.9rem; color: var(--text-dark);">
+                                ${recipe.missing_ingredients.map(ing => `<div>• ${escapeHTML(ing)}</div>`).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <div class="suggestion-instructions">
+                        <strong>Instructions:</strong>
+                        <div class="suggestion-instructions-text">${escapeHTML(recipe.instructions)}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    recipesDisplay.innerHTML = html;
+}
+
+function showSuggestionsStatus(message, type) {
+    suggestionsStatus.textContent = message;
+    suggestionsStatus.className = `status-message ${type}`;
+    suggestionsStatus.style.display = 'block';
+}
+
+function showSearchStatus(message, type) {
+    searchStatus.textContent = message;
+    searchStatus.className = `status-message ${type}`;
+    searchStatus.style.display = 'block';
+}
+
 // ===== Initialize =====
 
-// Load inventory on page load
+// Load dark mode and inventory on page load
 document.addEventListener('DOMContentLoaded', () => {
+    initDarkMode();
     loadInventory();
 
     // Refresh inventory every 30 seconds

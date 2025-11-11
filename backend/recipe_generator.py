@@ -573,3 +573,86 @@ def _format_api_ingredients(ingredients_data) -> list:
                 })
 
     return formatted
+
+
+def generate_unified_meal_plan(num_meals: int, criteria: str, inventory: list) -> dict:
+    """
+    Unified meal planning: Combine AI-generated recipes with API recipes and curate them.
+
+    This is the main orchestration function that:
+    1. Generates 2-3 AI recipes
+    2. Fetches 5-10 API recipes
+    3. Uses AI to curate and combine them
+    4. Returns a balanced meal plan with mixed sources
+
+    Args:
+        num_meals: Number of final meals to return (1-30)
+        criteria: User criteria/preferences (e.g., "Italian", "healthy", "vegetarian")
+        inventory: List of available inventory items
+
+    Returns:
+        Dict with success status and curated meals list
+    """
+
+    if num_meals < 1 or num_meals > 30:
+        return {"success": False, "error": "Number of meals must be between 1 and 30"}
+
+    # Load user preferences
+    preferences = _load_preferences()
+
+    try:
+        # Step 1: Generate AI recipes (2-3)
+        ai_num = min(3, max(1, num_meals // 2))  # 1-3 recipes
+        ai_result = generate_meal_plan(ai_num, criteria, inventory)
+
+        if not ai_result.get("success"):
+            return {"success": False, "error": "Failed to generate AI recipes: " + ai_result.get("error", "Unknown error")}
+
+        ai_recipes = ai_result.get("meals", [])
+        print(f"Generated {len(ai_recipes)} AI recipes")
+
+        # Step 2: Fetch API recipes (5-10)
+        api_num = min(10, max(5, num_meals))
+        api_result = get_suggested_recipes(inventory, api_num)
+
+        if not api_result.get("success"):
+            # If API fails, just use AI recipes
+            print(f"API recipe fetch failed: {api_result.get('error')}, using AI recipes only")
+            api_recipes = []
+        else:
+            api_recipes = api_result.get("recipes", [])
+            print(f"Fetched {len(api_recipes)} API recipes")
+
+        # Step 3: Curate and combine using AI
+        from backend.recipe_curator import curate_recipes_with_ai
+
+        curated_recipes = curate_recipes_with_ai(ai_recipes, api_recipes, num_meals, preferences)
+        print(f"Curated down to {len(curated_recipes)} final recipes")
+
+        # Step 4: Convert to meal plan format (wrap in "recipe" key for consistency)
+        meals = []
+        for i, recipe in enumerate(curated_recipes):
+            # Handle both AI and API recipe formats
+            if "recipe" in recipe:  # AI format
+                meal = {"recipe": recipe["recipe"]}
+            else:  # API or curated format
+                meal = {
+                    "recipe": {
+                        "name": recipe.get("name", "Unknown Recipe"),
+                        "ingredients": recipe.get("ingredients", recipe.get("main_ingredients", [])),
+                        "instructions": recipe.get("instructions", ""),
+                        "source": recipe.get("source", "Unknown")
+                    }
+                }
+            meals.append(meal)
+
+        return {
+            "success": True,
+            "count": len(meals),
+            "meals": meals,
+            "message": f"Generated {len(meals)} curated meals from AI + API sources"
+        }
+
+    except Exception as e:
+        print(f"Error in unified meal planning: {e}")
+        return {"success": False, "error": f"Error generating unified meal plan: {str(e)}"}

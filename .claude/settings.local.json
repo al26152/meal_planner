@@ -3,7 +3,14 @@
     "allow": [
       "Bash(./venv/Scripts/pip install:*)",
       "Bash(./venv/Scripts/python:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(python -m py_compile:*)",
+      "Bash(python -c:*)",
+      "Bash(source venv/Scripts/activate)",
+      "Bash(curl:*)",
+      "Bash(python app.py:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []

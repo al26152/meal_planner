@@ -9,6 +9,11 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY not found in .env file")
 
+# API Ninjas Configuration
+API_NINJAS_KEY = os.getenv('API_NINJAS_KEY')
+if not API_NINJAS_KEY:
+    raise ValueError("API_NINJAS_KEY not found in .env file")
+
 # Flask Configuration
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'False') == 'True'
@@ -20,6 +25,9 @@ ALLOWED_EXTENSIONS = {'txt', 'pdf'}
 
 # Inventory Configuration
 INVENTORY_FILE = 'data/inventory.json'
+
+# Meal Plans Configuration
+MEAL_PLANS_FILE = 'data/meal_plans.json'
 
 # Ensure directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)

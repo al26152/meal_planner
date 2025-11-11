@@ -20,11 +20,15 @@ def process_receipt_file(file_path: str) -> list:
         receipt_text = extract_text_from_pdf(file_path)
 
         if not receipt_text:
+            print(f"Warning: No text extracted from PDF at {file_path}")
             return []
+
+        print(f"Extracted receipt text ({len(receipt_text)} chars): {receipt_text[:200]}...")
 
         # Extract items using OpenAI
         items = extract_receipt_items(receipt_text)
 
+        print(f"Extracted {len(items)} items from receipt")
         return items
 
     except Exception as e:
@@ -34,7 +38,7 @@ def process_receipt_file(file_path: str) -> list:
 
 def extract_text_from_pdf(file_path: str) -> str:
     """
-    Extract text content from a PDF file.
+    Extract text content from a PDF file, including tables.
 
     Args:
         file_path: Path to the PDF file
@@ -48,10 +52,19 @@ def extract_text_from_pdf(file_path: str) -> str:
 
         with pdfplumber.open(file_path) as pdf:
             for page in pdf.pages:
-                # Extract text from page
+                # Extract regular text from page
                 page_text = page.extract_text()
                 if page_text:
                     text += page_text + "\n"
+
+                # Also try to extract tables (common in receipts)
+                tables = page.extract_tables()
+                if tables:
+                    for table in tables:
+                        for row in table:
+                            # Join row items with space
+                            row_text = " | ".join(str(cell) if cell else "" for cell in row)
+                            text += row_text + "\n"
 
         return text.strip()
 

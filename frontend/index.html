@@ -29,6 +29,10 @@
                     <span class="tab-icon">🍽️</span>
                     Meal Planning
                 </button>
+                <button class="tab-btn" data-tab="recipes-tab">
+                    <span class="tab-icon">📖</span>
+                    My Recipes
+                </button>
             </div>
         </nav>
 
@@ -158,6 +162,70 @@
                     </div>
                 </section>
             </div>
+
+            <!-- Recipes Tab -->
+            <div id="recipes-tab" class="tab-content">
+                <!-- Import Recipe Section -->
+                <section class="card recipe-import-section">
+                    <div class="section-header">
+                        <h2>Import a Recipe</h2>
+                    </div>
+
+                    <div class="recipe-import-form">
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <button class="tab-like-btn active" onclick="recipeManager.switchImportMode('url')">Import from URL</button>
+                            <button class="tab-like-btn" onclick="recipeManager.switchImportMode('paste')">Paste Recipe</button>
+                        </div>
+
+                        <!-- URL Import Mode -->
+                        <div id="urlImportMode">
+                            <div class="form-group">
+                                <label for="recipeUrl">Recipe URL (website or YouTube):</label>
+                                <input type="text" id="recipeUrl" placeholder="https://example.com/recipe..." />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recipeTags">Tags (comma-separated, e.g., "asian, quick, vegetarian"):</label>
+                                <input type="text" id="recipeTags" placeholder="Enter tags..." />
+                            </div>
+
+                            <button id="importRecipeBtn" class="btn btn-primary">Import Recipe</button>
+                        </div>
+
+                        <!-- Paste Mode -->
+                        <div id="pasteImportMode" style="display: none;">
+                            <div class="form-group">
+                                <label for="recipeText">Paste full recipe (ingredients + instructions):</label>
+                                <textarea id="recipeText" placeholder="Paste entire recipe here - ingredients and instructions..." class="recipe-textarea" style="min-height: 150px;"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recipeTextTags">Tags (comma-separated):</label>
+                                <input type="text" id="recipeTextTags" placeholder="Enter tags..." />
+                            </div>
+
+                            <button id="parseRecipeBtn" class="btn btn-primary">Parse & Edit Recipe</button>
+                        </div>
+
+                        <div id="importStatus" class="status-message" style="margin-top: 15px;"></div>
+                    </div>
+                </section>
+
+                <!-- Recipe Library Section -->
+                <section class="card recipe-library-section">
+                    <div class="section-header">
+                        <h2>My Recipe Library</h2>
+                        <div class="controls">
+                            <input type="text" id="recipeSearch" placeholder="Search recipes..." class="recipe-search-input" />
+                            <span class="recipe-count" id="recipeCount">0 recipes</span>
+                        </div>
+                    </div>
+
+                    <div id="recipesLibraryContainer" class="recipes-library">
+                        <p class="empty-state">No recipes yet. Import one to get started!</p>
+                    </div>
+                </section>
+            </div>
         </main>
 
         <footer>
@@ -178,6 +246,20 @@
         </div>
     </div>
 
+    <!-- Recipe Details Modal -->
+    <div id="recipeDetailModal" class="modal" style="display: none;">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2 id="recipeDetailTitle">Recipe Name</h2>
+                <button class="modal-close" id="closeRecipeDetailBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="recipeDetailContent"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='recipes.js') }}"></script>
 </body>
 </html>

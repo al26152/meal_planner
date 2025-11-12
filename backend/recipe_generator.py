@@ -292,6 +292,7 @@ def _generate_ingredient_combinations(ingredients: list, min_target: int, max_ta
     """
     Generate combinations of ingredients within the target range (40-50%).
     Falls back to single ingredients if needed.
+    Uses random sampling to avoid memory exhaustion.
 
     Args:
         ingredients: List of all available ingredients
@@ -303,20 +304,30 @@ def _generate_ingredient_combinations(ingredients: list, min_target: int, max_ta
     """
     from itertools import combinations
     import random
+    from math import comb
 
     combinations_list = []
 
     # Generate combinations starting with the most promising sizes
     for size in range(max_target, min_target - 1, -1):
-        # Limit combinations to avoid too many API calls
-        all_combos = list(combinations(ingredients, size))
-        max_combos = min(5, len(all_combos))
+        # Calculate total combinations WITHOUT generating them
+        total_combos = comb(len(ingredients), size)
 
-        # Randomly sample combinations if there are many
-        if max_combos < len(all_combos):
-            sampled = random.sample(all_combos, max_combos)
+        # Limit to 5 samples per size to avoid API call overload
+        max_samples = 5
+
+        # Use random sampling without generating all combinations
+        # This prevents memory exhaustion with large ingredient lists
+        if total_combos <= max_samples:
+            # Small number - generate all combinations
+            sampled = list(combinations(ingredients, size))
         else:
-            sampled = all_combos
+            # Large number - random sample directly
+            sampled = []
+            for _ in range(max_samples):
+                # Randomly select 'size' ingredients without replacement
+                sampled_ingredients = random.sample(ingredients, size)
+                sampled.append(tuple(sampled_ingredients))
 
         for combo in sampled:
             combinations_list.append(list(combo))
@@ -658,3 +669,158 @@ def generate_unified_meal_plan(num_meals: int, criteria: str, inventory: list) -
     except Exception as e:
         print(f"Error in unified meal planning: {e}")
         return {"success": False, "error": f"Error generating unified meal plan: {str(e)}"}
+
+
+def generate_meal_plan_with_curated(num_meals: int, criteria: str, inventory: list,
+                                   use_curated_first: bool = True) -> dict:
+    """
+    Enhanced meal planning with user-curated recipes as primary source.
+
+    Prioritizes user-curated recipes, adapts them to inventory, then supplements with AI/API.
+
+    This is the enhanced orchestration function that:
+    1. Fetches and adapts user-curated recipes
+    2. Optionally generates AI recipes
+    3. Optionally fetches API recipes
+    4. Curates all sources together
+    5. Returns a balanced meal plan prioritizing curated recipes
+
+    Args:
+        num_meals: Number of final meals to return (1-30)
+        criteria: User criteria/preferences (e.g., "Italian", "healthy", "vegetarian")
+        inventory: List of available inventory items
+        use_curated_first: If True, prioritize curated recipes (default True)
+
+    Returns:
+        Dict with success status and curated meals list
+    """
+    from backend.user_recipe_manager import UserRecipeManager
+    from backend.openai_client import adapt_recipe_to_inventory
+
+    if num_meals < 1 or num_meals > 30:
+        return {"success": False, "error": "Number of meals must be between 1 and 30"}
+
+    # Load user preferences
+    preferences = _load_preferences()
+    recipe_manager = UserRecipeManager('data')
+
+    try:
+        all_sources = []
+
+        # Step 1: Get and adapt user-curated recipes
+        curated_recipes = recipe_manager.get_all_recipes()
+
+        if curated_recipes:
+            print(f"Found {len(curated_recipes)} user-curated recipes")
+
+            # Filter by criteria if provided (simple name/tag matching)
+            if criteria:
+                criteria_lower = criteria.lower()
+                filtered = []
+                for recipe in curated_recipes:
+                    # Check if criteria matches recipe name, tags, or cuisine
+                    name_match = criteria_lower in recipe.get('name', '').lower()
+                    tags_match = any(criteria_lower in tag.lower() for tag in recipe.get('tags', []))
+                    cuisine_match = criteria_lower in recipe.get('cuisine', '').lower() if recipe.get('cuisine') else False
+
+                    if name_match or tags_match or cuisine_match:
+                        filtered.append(recipe)
+
+                # If no matches found, use all curated recipes
+                if filtered:
+                    curated_recipes = filtered
+
+            print(f"Using {len(curated_recipes)} curated recipes after filtering")
+
+            # Adapt each curated recipe to available inventory
+            adapted_curated = []
+            for recipe in curated_recipes[:num_meals]:  # Limit to avoid processing too many
+                adapted = adapt_recipe_to_inventory(recipe, inventory)
+                adapted_curated.append({
+                    **adapted,
+                    "source": "curated",
+                    "priority": 1  # High priority for curated recipes
+                })
+
+            all_sources.extend(adapted_curated)
+            print(f"Adapted {len(adapted_curated)} curated recipes")
+
+        # Step 2: If we don't have enough curated recipes, supplement with AI
+        if len(all_sources) < num_meals // 2:
+            ai_num = min(3, max(1, (num_meals - len(all_sources)) // 2))
+            print(f"Generating {ai_num} AI recipes to supplement")
+
+            ai_result = generate_meal_plan(ai_num, criteria, inventory)
+            if ai_result.get("success"):
+                ai_recipes = ai_result.get("meals", [])
+                for meal in ai_recipes:
+                    recipe = meal.get("recipe", {})
+                    recipe["source"] = "ai"
+                    recipe["priority"] = 2  # Medium priority
+                    all_sources.append({"recipe": recipe})
+                print(f"Generated {len(ai_recipes)} AI recipes")
+
+        # Step 3: If still need more, fetch API recipes
+        if len(all_sources) < num_meals:
+            api_num = min(10, max(5, num_meals))
+            print(f"Fetching {api_num} API recipes to supplement")
+
+            api_result = get_suggested_recipes(inventory, api_num)
+            if api_result.get("success"):
+                api_recipes = api_result.get("recipes", [])
+                for recipe in api_recipes[:num_meals - len(all_sources)]:
+                    recipe["source"] = "api_ninjas"
+                    recipe["priority"] = 3  # Lower priority
+                    all_sources.append({"recipe": recipe})
+                print(f"Fetched {len(api_recipes)} API recipes")
+
+        # Step 4: Curate all sources together
+        if all_sources:
+            from backend.recipe_curator import curate_recipes_with_ai
+
+            # Extract recipes for curation
+            recipes_to_curate = []
+            for source in all_sources:
+                if "recipe" in source:
+                    recipes_to_curate.append(source["recipe"])
+                else:
+                    recipes_to_curate.append(source)
+
+            # Split into AI and API for curator (it expects two lists)
+            ai_recipes = [r for r in recipes_to_curate if r.get("source") == "ai"]
+            other_recipes = [r for r in recipes_to_curate if r.get("source") != "ai"]
+
+            curated_result = curate_recipes_with_ai(ai_recipes, other_recipes, num_meals, preferences)
+            print(f"Curated down to {len(curated_result)} final recipes")
+
+            # Convert to meal plan format
+            meals = []
+            for recipe in curated_result:
+                if "recipe" in recipe:  # Already wrapped
+                    meals.append(recipe)
+                else:
+                    meals.append({
+                        "recipe": {
+                            "name": recipe.get("name", "Unknown Recipe"),
+                            "ingredients": recipe.get("ingredients", recipe.get("main_ingredients", [])),
+                            "instructions": recipe.get("instructions", ""),
+                            "source": recipe.get("source", "Unknown"),
+                            "adaptation": recipe.get("adaptation")  # Include adaptation info if present
+                        }
+                    })
+
+            return {
+                "success": True,
+                "count": len(meals),
+                "meals": meals,
+                "message": f"Generated {len(meals)} meals prioritizing your curated recipes"
+            }
+        else:
+            # Fallback to standard unified meal planning
+            return generate_unified_meal_plan(num_meals, criteria, inventory)
+
+    except Exception as e:
+        print(f"Error in curated meal planning: {e}")
+        # Fallback to standard unified meal planning
+        print("Falling back to standard unified meal planning...")
+        return generate_unified_meal_plan(num_meals, criteria, inventory)

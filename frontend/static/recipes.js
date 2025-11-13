@@ -21,6 +21,7 @@ const recipeManager = {
     // Parse pasted recipe text
     parseRecipeFromText: async function() {
         const recipeText = document.getElementById('recipeText').value.trim();
+        const youtubeUrl = document.getElementById('recipeTextYouTubeUrl').value.trim();
         const tagsInput = document.getElementById('recipeTextTags').value.trim();
         const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()) : [];
 
@@ -39,7 +40,8 @@ const recipeManager = {
                 },
                 body: JSON.stringify({
                     content: recipeText,
-                    tags: tags
+                    tags: tags,
+                    source_url: youtubeUrl || null
                 })
             });
 
@@ -47,7 +49,7 @@ const recipeManager = {
 
             if (data.success) {
                 // Show edit modal before saving
-                this.showEditRecipeModal(data.recipe, tags, true);
+                this.showEditRecipeModal(data.recipe, tags, true, youtubeUrl);
                 this.showStatus('', '');
             } else {
                 this.showStatus(`Error: ${data.error}`, 'error');
@@ -59,7 +61,10 @@ const recipeManager = {
     },
 
     // Show edit modal for recipe (allows user to amend before saving)
-    showEditRecipeModal: function(recipe, tags, isFromPaste = false) {
+    showEditRecipeModal: function(recipe, tags, isFromPaste = false, youtubeUrl = null) {
+        // Store YouTube URL for later use when saving
+        window.recipeManagerYoutubeUrl = youtubeUrl;
+
         const modal = document.createElement('div');
         modal.className = 'modal';
         modal.id = 'editRecipeModal';
@@ -123,6 +128,7 @@ const recipeManager = {
         const instructions = document.getElementById('editRecipeInstructions').value.trim();
         const tagsInput = document.getElementById('editRecipeTags').value.trim();
         const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()) : [];
+        const youtubeUrl = window.recipeManagerYoutubeUrl || null;
 
         if (!name) {
             alert('Please enter a recipe name');
@@ -149,6 +155,14 @@ const recipeManager = {
         try {
             this.showStatus('Saving recipe...', 'loading');
 
+            // Determine source and notes
+            let source = 'manual';
+            let notes = null;
+            if (youtubeUrl) {
+                source = 'youtube';
+                notes = `Imported from: ${youtubeUrl}`;
+            }
+
             // Save using the regular add recipe endpoint
             const response = await fetch('/api/user-recipes', {
                 method: 'POST',
@@ -160,7 +174,9 @@ const recipeManager = {
                     ingredients,
                     instructions,
                     tags,
-                    source: 'manual'
+                    source: source,
+                    source_url: youtubeUrl,
+                    notes: notes
                 })
             });
 
@@ -171,7 +187,9 @@ const recipeManager = {
                 document.getElementById('editRecipeModal').remove();
                 // Clear paste mode
                 document.getElementById('recipeText').value = '';
+                document.getElementById('recipeTextYouTubeUrl').value = '';
                 document.getElementById('recipeTextTags').value = '';
+                window.recipeManagerYoutubeUrl = null;
                 this.loadRecipes();
             } else {
                 this.showStatus(`Error: ${data.error}`, 'error');
@@ -233,7 +251,7 @@ const recipeManager = {
                 </div>
                 <div class="recipe-card-footer">
                     <button class="btn btn-small" onclick="recipeManager.viewRecipe('${recipe.id}')">
-                        View & Adapt
+                        ✓ Check Ingredients
                     </button>
                     <button class="btn btn-small btn-danger-small" onclick="recipeManager.deleteRecipe('${recipe.id}')">
                         Delete
@@ -319,6 +337,14 @@ const recipeManager = {
                                 </div>
                             ` : ''}
                         </div>
+
+                        ${adaptation.missing_ingredients && adaptation.missing_ingredients.length > 0 ? `
+                            <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                                <button class="btn btn-primary" onclick="recipeManager.addMissingToShoppingList('${recipe.id}', '${recipe.name}')">
+                                    🛒 Add Missing Items to Shopping List
+                                </button>
+                            </div>
+                        ` : ''}
                     `;
                 }
 
@@ -342,6 +368,172 @@ const recipeManager = {
             document.getElementById('recipeDetailTitle').textContent = 'Error';
             document.getElementById('recipeDetailContent').innerHTML = `<p style="color: var(--danger-color);">Failed to load recipe: ${error.message}</p>`;
             modal.style.display = 'flex';
+        }
+    },
+
+    // Add missing ingredients to shopping list
+    addMissingToShoppingList: async function(recipeId, recipeName) {
+        try {
+            const response = await fetch(`/api/user-recipes/${recipeId}/adapt`);
+            const data = await response.json();
+
+            if (data.success && data.recipe.adaptation && data.recipe.adaptation.missing_ingredients) {
+                const missing = data.recipe.adaptation.missing_ingredients;
+
+                // Create items array from missing ingredients
+                const items = missing.map(ingredient => {
+                    // Handle both string and object formats
+                    if (typeof ingredient === 'string') {
+                        return { name: ingredient, quantity: 1, unit: '' };
+                    }
+                    return ingredient;
+                });
+
+                // Add to shopping list
+                const shoppingResponse = await fetch('/api/shopping-list', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ items })
+                });
+
+                const shoppingData = await shoppingResponse.json();
+                if (shoppingData.success) {
+                    this.showStatus(`✓ Added ${items.length} items from "${recipeName}" to shopping list!`, 'success');
+                    document.getElementById('recipeDetailModal').style.display = 'none';
+                } else {
+                    this.showStatus('Error adding items to shopping list', 'error');
+                }
+            } else {
+                this.showStatus('No missing ingredients to add', 'error');
+            }
+        } catch (error) {
+            console.error('Error adding to shopping list:', error);
+            this.showStatus('Failed to add items to shopping list', 'error');
+        }
+    },
+
+    // Show manual entry form for YouTube videos and other sources that need manual input
+    showManualEntryForm: function(recipe, message, tags = []) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'manualEntryModal';
+        modal.style.display = 'flex';
+
+        const ingredientsList = (recipe.ingredients || []).map((ing, i) => `
+            <div class="ingredient-input-row" data-index="${i}">
+                <input type="text" class="ingredient-name" placeholder="Ingredient name" value="${ing.name || ''}" />
+                <input type="number" class="ingredient-qty" placeholder="Qty" value="${ing.quantity || 1}" step="0.5" />
+                <input type="text" class="ingredient-unit" placeholder="Unit" value="${ing.unit || ''}" />
+                <button type="button" class="btn btn-small btn-danger-small" onclick="recipeManager.removeIngredient(${i})">Remove</button>
+            </div>
+        `).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content large">
+                <div class="modal-header">
+                    <h2>Complete Recipe Details</h2>
+                    <button class="modal-close" onclick="document.getElementById('manualEntryModal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--text-light); margin-bottom: 15px;">${message || 'Please complete the recipe details below'}</p>
+
+                    <div class="form-group">
+                        <label>Recipe Name:</label>
+                        <input type="text" id="manualRecipeName" class="recipe-input" value="${recipe.name || ''}" placeholder="Recipe name" />
+                    </div>
+
+                    <div class="form-group">
+                        <label>Instructions:</label>
+                        <textarea id="manualRecipeInstructions" class="recipe-textarea" placeholder="Cooking instructions...">${recipe.instructions || ''}</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ingredients:</label>
+                        <div id="manualIngredientsInputs" class="ingredients-inputs">
+                            ${ingredientsList || '<p style="color: var(--text-light);">No ingredients added yet.</p>'}
+                        </div>
+                        <button type="button" class="btn btn-small" style="margin-top: 10px;" onclick="recipeManager.addIngredientInput()">+ Add Ingredient</button>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Tags (comma-separated):</label>
+                        <input type="text" id="manualRecipeTags" class="recipe-input" value="${(tags || recipe.tags || []).join(', ')}" />
+                    </div>
+
+                    <div class="form-buttons" style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="btn btn-primary" onclick="recipeManager.saveManualRecipe('${recipe.source_url || ''}')">Save Recipe</button>
+                        <button class="btn btn-secondary" onclick="document.getElementById('manualEntryModal').remove()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+    },
+
+    // Save manually entered recipe
+    saveManualRecipe: async function(sourceUrl = '') {
+        const name = document.getElementById('manualRecipeName').value.trim();
+        const instructions = document.getElementById('manualRecipeInstructions').value.trim();
+        const tagsInput = document.getElementById('manualRecipeTags').value.trim();
+        const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()) : [];
+
+        if (!name) {
+            alert('Please enter a recipe name');
+            return;
+        }
+
+        // Collect ingredients
+        const ingredients = [];
+        document.querySelectorAll('#manualIngredientsInputs .ingredient-input-row').forEach(row => {
+            const ingName = row.querySelector('.ingredient-name').value.trim();
+            const qty = parseFloat(row.querySelector('.ingredient-qty').value) || 1;
+            const unit = row.querySelector('.ingredient-unit').value.trim();
+
+            if (ingName) {
+                ingredients.push({ name: ingName, quantity: qty, unit });
+            }
+        });
+
+        if (ingredients.length === 0) {
+            alert('Please add at least one ingredient');
+            return;
+        }
+
+        try {
+            this.showStatus('Saving recipe...', 'loading');
+
+            // Save the recipe
+            const response = await fetch('/api/user-recipes', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    name,
+                    ingredients,
+                    instructions,
+                    tags,
+                    source: sourceUrl ? 'youtube' : 'manual',
+                    source_url: sourceUrl,
+                    notes: sourceUrl ? `Imported from: ${sourceUrl}` : 'Manually entered'
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                this.showStatus('Recipe saved successfully!', 'success');
+                document.getElementById('manualEntryModal').remove();
+                document.getElementById('recipeUrl').value = '';
+                document.getElementById('recipeTags').value = '';
+                this.loadRecipes();
+            } else {
+                this.showStatus(`Error: ${data.error}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving recipe:', error);
+            this.showStatus('Failed to save recipe', 'error');
         }
     },
 

@@ -314,45 +314,6 @@ def get_shopping_list(plan_id):
         return jsonify({'error': f'Error generating shopping list: {str(e)}'}), 500
 
 
-# ===== Unified Recipe Finder =====
-
-@app.route('/api/recipes/find-by-inventory', methods=['GET'])
-def find_recipes_by_inventory_endpoint():
-    """
-    Find recipes matching current inventory.
-    Prioritizes user's saved recipes, then API recipes.
-    Sorted by: saved recipes first, then fewest missing ingredients.
-    """
-    try:
-        from backend.recipe_generator import find_recipes_by_inventory
-
-        # Get optional parameters
-        preferences = request.args.get('preferences', '', type=str)
-        limit = request.args.get('limit', 10, type=int)
-
-        # Get current inventory
-        inventory = InventoryManager.get_all_items()
-
-        if not inventory:
-            return jsonify({'error': 'No inventory items available'}), 400
-
-        # Find recipes
-        result = find_recipes_by_inventory(inventory, preferences, limit)
-
-        if not result.get('success'):
-            return jsonify({'error': result.get('error', 'Failed to find recipes')}), 400
-
-        return jsonify({
-            'success': True,
-            'count': result.get('count'),
-            'source': result.get('source'),
-            'recipes': result.get('recipes', [])
-        }), 200
-
-    except Exception as e:
-        return jsonify({'error': f'Error finding recipes: {str(e)}'}), 500
-
-
 # ===== Shopping List Management =====
 
 @app.route('/api/shopping-list', methods=['GET'])

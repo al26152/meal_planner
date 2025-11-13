@@ -932,171 +932,66 @@ function showSearchStatus(message, type) {
 
 // ===== What Can I Cook - Find Recipes by Inventory =====
 
-async function findRecipesByInventory() {
-    const preferences = document.getElementById('recipePreferences').value;
-    const findBtn = document.getElementById('findRecipesBtn');
-    const loadingDiv = document.getElementById('findRecipesLoading');
-    const statusDiv = document.getElementById('findRecipesStatus');
-    const resultsSection = document.getElementById('recipesResultsSection');
-    const resultsList = document.getElementById('recipesResultsList');
-
-    // Show loading
-    loadingDiv.style.display = 'flex';
-    statusDiv.innerHTML = '';
-    findBtn.disabled = true;
-
+// Shopping list loading function
+async function loadShoppingList() {
     try {
-        const url = `/api/recipes/find-by-inventory?limit=10${preferences ? `&preferences=${encodeURIComponent(preferences)}` : ''}`;
-        const response = await fetch(url);
+        const response = await fetch('/api/shopping-list');
         const data = await response.json();
 
-        if (!data.success) {
-            statusDiv.innerHTML = `<p class="error">${data.error || 'Failed to find recipes'}</p>`;
-            resultsSection.style.display = 'none';
-            return;
+        if (data.success) {
+            displayShoppingList(data.items);
         }
-
-        // Display results
-        displayRecipeResults(data.recipes);
-        document.getElementById('recipesCountDisplay').textContent = `${data.count} recipes found`;
-        resultsSection.style.display = 'block';
-
     } catch (error) {
-        statusDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
-        resultsSection.style.display = 'none';
-    } finally {
-        loadingDiv.style.display = 'none';
-        findBtn.disabled = false;
+        console.error('Error loading shopping list:', error);
     }
 }
 
-function displayRecipeResults(recipes) {
-    const resultsList = document.getElementById('recipesResultsList');
-    resultsList.innerHTML = '';
+function displayShoppingList(items) {
+    const container = document.getElementById('shoppingListContainer');
 
-    if (!recipes || recipes.length === 0) {
-        resultsList.innerHTML = '<p class="empty-state">No recipes found. Try adding more items to your inventory!</p>';
+    if (!items || items.length === 0) {
+        container.innerHTML = '<p class="empty-state">No items in shopping list. Add missing ingredients from your recipes!</p>';
         return;
     }
 
-    recipes.forEach((recipe, index) => {
-        const sourceColor = recipe.source === 'saved' ? '#4CAF50' : '#2196F3';
-        const sourceBadge = recipe.source === 'saved' ? '📚 Saved' : '🌐 API';
-        const matchPct = recipe.match_percentage || 0;
-
-        const card = document.createElement('div');
-        card.className = 'recipe-card';
-        card.innerHTML = `
-            <div class="recipe-card-header">
-                <div>
-                    <h4 class="recipe-name">${recipe.name || 'Unknown Recipe'}</h4>
-                    <span class="recipe-source-badge" style="background-color: ${sourceColor};">${sourceBadge}</span>
-                </div>
-                <div class="recipe-match">${matchPct.toFixed(0)}% Match</div>
+    const html = items.map(item => `
+        <div class="shopping-item" style="padding: 10px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <input type="checkbox" ${item.completed ? 'checked' : ''} onchange="toggleShoppingItem('${item.id}', this.checked)">
+                <span style="margin-left: 10px; ${item.completed ? 'text-decoration: line-through; color: var(--text-light);' : ''}">${item.name}</span>
+                ${item.quantity ? `<span style="margin-left: 10px; color: var(--text-light);">${item.quantity}${item.unit ? ' ' + item.unit : ''}</span>` : ''}
             </div>
+            <button class="btn btn-small btn-danger-small" onclick="removeShoppingItem('${item.id}')">Remove</button>
+        </div>
+    `).join('');
 
-            <div class="recipe-match-info">
-                <div class="has-ingredients">
-                    <strong>✓ Have (${recipe.has_ingredients ? recipe.has_ingredients.length : 0}):</strong>
-                    ${recipe.has_ingredients && recipe.has_ingredients.length > 0
-                        ? `<p>${recipe.has_ingredients.slice(0, 3).map(i => typeof i === 'string' ? i : i.name).join(', ')}${recipe.has_ingredients.length > 3 ? '...' : ''}</p>`
-                        : '<p>None</p>'}
-                </div>
-                <div class="missing-ingredients">
-                    <strong>✗ Missing (${recipe.missing_ingredients ? recipe.missing_ingredients.length : 0}):</strong>
-                    ${recipe.missing_ingredients && recipe.missing_ingredients.length > 0
-                        ? `<p style="color: #f44336;">${recipe.missing_ingredients.slice(0, 3).map(i => typeof i === 'string' ? i : i.name).join(', ')}${recipe.missing_ingredients.length > 3 ? '...' : ''}</p>`
-                        : '<p style="color: #4CAF50;">Nothing!</p>'}
-                </div>
-            </div>
-
-            <div class="recipe-actions">
-                ${recipe.missing_ingredients && recipe.missing_ingredients.length > 0
-                    ? `<button class="btn btn-small" onclick="showAddToShoppingListModal(${index})">+ Shopping List</button>`
-                    : '<span style="color: #4CAF50;">✓ Ready to cook!</span>'}
-                <button class="btn btn-small btn-secondary" onclick="viewRecipeDetails(${index})">View Recipe</button>
-                ${recipe.source !== 'saved' ? `<button class="btn btn-small" onclick="saveRecipeToLibrary(${index})">💾 Save</button>` : ''}
-            </div>
-        `;
-        resultsList.appendChild(card);
-
-        // Store recipe data on card for later use
-        card.recipeData = recipe;
-        card.recipeIndex = index;
-    });
-
-    // Store all recipes for reference
-    window.currentRecipes = recipes;
+    container.innerHTML = html;
 }
 
-let currentRecipeIndexForShopping = null;
-
-function showAddToShoppingListModal(index) {
-    currentRecipeIndexForShopping = index;
-    const recipe = window.currentRecipes[index];
-    const modal = document.getElementById('shoppingListModal');
-    const itemsDiv = document.getElementById('shoppingListItems');
-
-    itemsDiv.innerHTML = `
-        <ul style="list-style: none; padding: 0;">
-            ${recipe.missing_ingredients.map((ing, i) => `
-                <li style="padding: 5px 0;">
-                    <input type="checkbox" id="item-${i}" checked>
-                    <label for="item-${i}" style="margin-left: 5px;">${typeof ing === 'string' ? ing : ing.name}</label>
-                </li>
-            `).join('')}
-        </ul>
-    `;
-
-    modal.style.display = 'block';
-}
-
-function closeShoppingListModal() {
-    document.getElementById('shoppingListModal').style.display = 'none';
-}
-
-async function confirmAddToShoppingList() {
-    if (currentRecipeIndexForShopping === null) return;
-
-    const recipe = window.currentRecipes[currentRecipeIndexForShopping];
-    const selectedItems = Array.from(document.querySelectorAll('#shoppingListItems input[type="checkbox"]:checked'))
-        .map((cb, i) => {
-            const ing = recipe.missing_ingredients[i];
-            return typeof ing === 'string' ? { name: ing, quantity: 1, unit: '' } : ing;
-        });
-
+async function toggleShoppingItem(itemId, completed) {
     try {
-        const response = await fetch('/api/shopping-list', {
-            method: 'POST',
+        const response = await fetch(`/api/shopping-list/${itemId}`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ items: selectedItems })
+            body: JSON.stringify({ completed })
         });
-
-        const data = await response.json();
-        if (data.success) {
-            showStatus('✓ Added to shopping list!', 'success');
-            closeShoppingListModal();
-        } else {
-            showStatus('Error: ' + (data.error || 'Failed to add items'), 'error');
+        if (response.ok) {
+            loadShoppingList();
         }
     } catch (error) {
-        showStatus('Error: ' + error.message, 'error');
+        console.error('Error updating item:', error);
     }
 }
 
-function viewRecipeDetails(index) {
-    const recipe = window.currentRecipes[index];
-    alert(`${recipe.name}\n\nIngredients:\n${recipe.ingredients.map(i => `- ${typeof i === 'string' ? i : i.name}`).join('\n')}\n\nInstructions:\n${recipe.instructions || 'No instructions'}`);
-}
-
-function saveRecipeToLibrary(index) {
-    alert('Save to library feature coming soon!');
-}
-
-function showStatus(message, type) {
-    const statusDiv = document.getElementById('findRecipesStatus');
-    statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
-    setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+async function removeShoppingItem(itemId) {
+    try {
+        const response = await fetch(`/api/shopping-list/${itemId}`, { method: 'DELETE' });
+        if (response.ok) {
+            loadShoppingList();
+        }
+    } catch (error) {
+        console.error('Error removing item:', error);
+    }
 }
 
 // ===== Initialize =====
@@ -1105,21 +1000,50 @@ function showStatus(message, type) {
 document.addEventListener('DOMContentLoaded', () => {
     initDarkMode();
     loadInventory();
+    loadShoppingList();
 
-    // Add "What Can I Cook?" button listener
-    const findBtn = document.getElementById('findRecipesBtn');
-    if (findBtn) {
-        findBtn.addEventListener('click', findRecipesByInventory);
-    }
-
-    // Close shopping list modal when clicking outside
+    // Close modals when clicking outside
     window.onclick = function(event) {
-        const modal = document.getElementById('shoppingListModal');
-        if (event.target === modal) {
-            modal.style.display = 'none';
+        const shoppingModal = document.getElementById('shoppingListModal');
+        const recipeModal = document.getElementById('recipeDetailModal');
+        if (event.target === shoppingModal) {
+            shoppingModal.style.display = 'none';
+        }
+        if (event.target === recipeModal) {
+            recipeModal.style.display = 'none';
         }
     };
 
+    // Load shopping list when shopping list tab is clicked
+    const shoppingListTab = document.getElementById('shopping-list-tab');
+    if (shoppingListTab) {
+        const observer = new MutationObserver(() => {
+            if (shoppingListTab.classList.contains('active') || shoppingListTab.style.display !== 'none') {
+                loadShoppingList();
+            }
+        });
+        observer.observe(shoppingListTab, { attributes: true, attributeFilter: ['class', 'style'] });
+    }
+
+    // Clear shopping list button
+    const clearShoppingBtn = document.getElementById('clearShoppingBtn');
+    if (clearShoppingBtn) {
+        clearShoppingBtn.addEventListener('click', async () => {
+            if (confirm('Clear all items from shopping list?')) {
+                try {
+                    const response = await fetch('/api/shopping-list', { method: 'DELETE' });
+                    if (response.ok) {
+                        loadShoppingList();
+                    }
+                } catch (error) {
+                    console.error('Error clearing shopping list:', error);
+                }
+            }
+        });
+    }
+
     // Refresh inventory every 30 seconds
     setInterval(loadInventory, 30000);
+    // Refresh shopping list every 20 seconds
+    setInterval(loadShoppingList, 20000);
 });

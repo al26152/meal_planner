@@ -81,83 +81,57 @@
                 </section>
             </div>
 
-            <!-- Meal Planning Tab -->
+            <!-- What Can I Cook Tab -->
             <div id="meal-planning-tab" class="tab-content">
-                <!-- Meal Planner Section -->
-                <section class="card meal-planner-section">
+                <!-- Find Recipes Section -->
+                <section class="card what-can-i-cook-section">
                     <div class="section-header">
-                        <h2>Create Meal Plan</h2>
+                        <h2>🍳 What Can I Cook?</h2>
+                        <p class="description">Find recipes you can make with your current inventory</p>
                     </div>
 
-                    <div class="meal-planner-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="numMeals">Number of Meals:</label>
-                                <input type="number" id="numMeals" min="1" max="30" value="7" required>
-                            </div>
-                        </div>
-
+                    <div class="find-recipes-form">
                         <div class="form-group">
-                            <label for="mealCriteria">Meal Preferences (e.g., "Italian", "healthy", "vegetarian", "gourmet"):</label>
-                            <input type="text" id="mealCriteria" placeholder="Enter your meal style..." required>
+                            <label for="recipePreferences">Any preferences? (e.g., "Italian", "quick", "vegetarian")</label>
+                            <input type="text" id="recipePreferences" placeholder="Leave empty to see all recipes..." />
                         </div>
 
-                        <button id="generatePlanBtn" class="btn btn-primary">Generate Meal Plan</button>
-                        <div id="planLoading" class="upload-loading" style="display: none;">
+                        <button id="findRecipesBtn" class="btn btn-primary">Find Recipes</button>
+
+                        <div id="findRecipesLoading" class="upload-loading" style="display: none;">
                             <div class="spinner"></div>
-                            <p>Generating your meal plan...</p>
+                            <p>Finding recipes...</p>
                         </div>
-                        <div id="planStatus" class="status-message"></div>
+                        <div id="findRecipesStatus" class="status-message"></div>
                     </div>
 
-                    <!-- Meal Plan Display -->
-                    <div id="mealPlanContainer" style="display: none;">
-                        <h3>Your Meal Plan</h3>
-                        <div id="mealsDisplay" class="meals-display"></div>
-                        <button id="shoppingListBtn" class="btn btn-primary" style="margin-top: 15px;">Generate Shopping List</button>
-                    </div>
-                </section>
-
-                <!-- Recipe Suggestions Section -->
-                <section class="card recipe-suggestions-section">
-                    <div class="section-header">
-                        <h2>Find Recipes From Your Ingredients</h2>
-                        <p class="description">AI suggests recipe types based on your inventory, then find real recipes matching your ingredients</p>
-                    </div>
-
-                    <!-- Step 1: Get Suggestions -->
-                    <div id="suggestionsStep" style="margin-bottom: 30px;">
-                        <h3 style="margin-bottom: 15px;">Step 1: Get Recipe Suggestions</h3>
-                        <button id="getSuggestionsBtn" class="btn btn-primary">Analyze My Inventory</button>
-
-                        <div id="suggestionsLoading" class="upload-loading" style="display: none; margin-top: 15px;">
-                            <div class="spinner"></div>
-                            <p>Analyzing your ingredients...</p>
+                    <!-- Recipes Results Section -->
+                    <div id="recipesResultsSection" style="display: none; margin-top: 30px;">
+                        <div class="section-header">
+                            <h3>Recipes Sorted by What You Have</h3>
+                            <span id="recipesCountDisplay">0 recipes found</span>
                         </div>
 
-                        <div id="suggestionsStatus" class="status-message" style="margin-top: 15px;"></div>
-
-                        <!-- Recipe Type Suggestions -->
-                        <div id="recipeSuggestionsContainer" style="display: none; margin-top: 20px;">
-                            <h4>What would you like to cook?</h4>
-                            <div id="recipeTypeButtons" class="recipe-type-buttons"></div>
+                        <div id="recipesResultsList" class="recipes-results-list">
+                            <!-- Recipe cards will be inserted here -->
                         </div>
                     </div>
 
-                    <!-- Step 2: Search Recipes -->
-                    <div id="searchStep" style="display: none;">
-                        <h3 style="margin-bottom: 15px;">Step 2: Browse Recipes</h3>
-                        <p id="selectedRecipeType" style="margin-bottom: 15px; color: var(--text-light);"></p>
-
-                        <div id="searchLoading" class="upload-loading" style="display: none;">
-                            <div class="spinner"></div>
-                            <p>Finding recipes that match your ingredients...</p>
-                        </div>
-
-                        <div id="searchStatus" class="status-message" style="margin-top: 15px;"></div>
-
-                        <div id="recipesContainer" style="display: none;">
-                            <div id="recipesDisplay" class="suggestions-display"></div>
+                    <!-- Shopping List Modal -->
+                    <div id="shoppingListModal" class="modal" style="display: none;">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h3>Add to Shopping List</h3>
+                                <button class="modal-close" onclick="closeShoppingListModal()">&times;</button>
+                            </div>
+                            <div class="modal-body">
+                                <p>Missing ingredients to buy:</p>
+                                <div id="shoppingListItems"></div>
+                                <div class="modal-footer">
+                                    <button class="btn btn-primary" onclick="confirmAddToShoppingList()">Add to Shopping List</button>
+                                    <button class="btn btn-secondary" onclick="closeShoppingListModal()">Cancel</button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </section>

@@ -6,8 +6,8 @@ from backend.transcription_processor import process_transcription_file
 from backend.receipt_handler import process_receipt_file, save_uploaded_file as save_receipt_file
 from backend.inventory_manager import InventoryManager
 from backend.meal_plan_manager import MealPlanManager
-from backend.recipe_generator import generate_meal_plan, generate_unified_meal_plan, regenerate_single_meal, get_suggested_recipes, search_recipes_by_type, generate_meal_plan_with_curated
-from backend.openai_client import suggest_recipe_types, adapt_recipe_to_inventory
+from backend.recipe_generator import generate_meal_plan, generate_unified_meal_plan, regenerate_single_meal, generate_meal_plan_with_curated
+from backend.openai_client import adapt_recipe_to_inventory
 from backend.shopping_list_generator import generate_shopping_list
 from backend.user_recipe_manager import UserRecipeManager
 from backend.recipe_importer import import_recipe_from_url, import_recipe_from_youtube, extract_recipe_from_text
@@ -314,84 +314,33 @@ def get_shopping_list(plan_id):
         return jsonify({'error': f'Error generating shopping list: {str(e)}'}), 500
 
 
-@app.route('/api/recipes/suggest-types', methods=['GET'])
-def suggest_recipe_types_endpoint():
-    """Get AI-suggested recipe types based on current inventory."""
+# ===== Unified Recipe Finder =====
+
+@app.route('/api/recipes/find-by-inventory', methods=['GET'])
+def find_recipes_by_inventory_endpoint():
+    """
+    Find recipes matching current inventory.
+    Prioritizes user's saved recipes, then API recipes.
+    Sorted by: saved recipes first, then fewest missing ingredients.
+    """
     try:
-        # Get current inventory
-        inventory = InventoryManager.get_all_items()
+        from backend.recipe_generator import find_recipes_by_inventory
 
-        if not inventory:
-            return jsonify({'error': 'No inventory items available'}), 400
-
-        # Get recipe type suggestions from AI
-        suggestions = suggest_recipe_types(inventory)
-
-        if not suggestions:
-            return jsonify({'error': 'Could not generate recipe suggestions'}), 400
-
-        return jsonify({
-            'success': True,
-            'count': len(suggestions),
-            'suggestions': suggestions
-        }), 200
-
-    except Exception as e:
-        return jsonify({'error': f'Error getting recipe suggestions: {str(e)}'}), 500
-
-
-@app.route('/api/recipes/search', methods=['POST'])
-def search_recipes():
-    """Search for recipes by type with inventory matching."""
-    try:
-        data = request.json
-        recipe_type = data.get('recipe_type')
-
-        if not recipe_type:
-            return jsonify({'error': 'recipe_type is required'}), 400
-
-        # Get current inventory
-        inventory = InventoryManager.get_all_items()
-
-        if not inventory:
-            return jsonify({'error': 'No inventory items available'}), 400
-
-        # Search recipes matching the type
-        result = search_recipes_by_type(inventory, recipe_type, num_results=5)
-
-        if not result.get('success'):
-            return jsonify({'error': result.get('error', 'Failed to search recipes')}), 400
-
-        return jsonify({
-            'success': True,
-            'count': result.get('count'),
-            'recipe_type': result.get('recipe_type'),
-            'source': result.get('source'),
-            'recipes': result.get('recipes', [])
-        }), 200
-
-    except Exception as e:
-        return jsonify({'error': f'Error searching recipes: {str(e)}'}), 500
-
-
-@app.route('/api/recipes/suggestions', methods=['GET'])
-def get_recipe_suggestions():
-    """Get recipe suggestions based on current inventory from API Ninjas."""
-    try:
         # Get optional parameters
-        num_suggestions = request.args.get('limit', 5, type=int)
+        preferences = request.args.get('preferences', '', type=str)
+        limit = request.args.get('limit', 10, type=int)
 
         # Get current inventory
         inventory = InventoryManager.get_all_items()
 
         if not inventory:
-            return jsonify({'error': 'No inventory items available for recipe suggestions'}), 400
+            return jsonify({'error': 'No inventory items available'}), 400
 
-        # Get suggested recipes from API Ninjas
-        result = get_suggested_recipes(inventory, num_suggestions)
+        # Find recipes
+        result = find_recipes_by_inventory(inventory, preferences, limit)
 
         if not result.get('success'):
-            return jsonify({'error': result.get('error', 'Failed to get recipe suggestions')}), 400
+            return jsonify({'error': result.get('error', 'Failed to find recipes')}), 400
 
         return jsonify({
             'success': True,
@@ -401,7 +350,108 @@ def get_recipe_suggestions():
         }), 200
 
     except Exception as e:
-        return jsonify({'error': f'Error getting recipe suggestions: {str(e)}'}), 500
+        return jsonify({'error': f'Error finding recipes: {str(e)}'}), 500
+
+
+# ===== Shopping List Management =====
+
+@app.route('/api/shopping-list', methods=['GET'])
+def get_shopping_list_items():
+    """Get current shopping list."""
+    try:
+        from backend.shopping_list_manager import ShoppingListManager
+
+        items = ShoppingListManager.load_shopping_list()
+        active_items = [item for item in items if not item.get('completed', False)]
+
+        return jsonify({
+            'success': True,
+            'count': len(active_items),
+            'items': active_items
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error retrieving shopping list: {str(e)}'}), 500
+
+
+@app.route('/api/shopping-list', methods=['POST'])
+def add_to_shopping_list():
+    """Add items to shopping list."""
+    try:
+        from backend.shopping_list_manager import ShoppingListManager
+
+        data = request.json
+        items_to_add = data.get('items', [])
+
+        if not items_to_add:
+            return jsonify({'error': 'No items provided'}), 400
+
+        # Add items (handles duplicates by summing quantities)
+        updated_list = ShoppingListManager.add_items_batch(items_to_add)
+
+        return jsonify({
+            'success': True,
+            'message': f'Added {len(items_to_add)} items to shopping list',
+            'items': updated_list
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error adding items: {str(e)}'}), 500
+
+
+@app.route('/api/shopping-list/<item_id>', methods=['PUT'])
+def update_shopping_list_item(item_id):
+    """Update shopping list item (e.g., mark as completed)."""
+    try:
+        from backend.shopping_list_manager import ShoppingListManager
+
+        data = request.json
+        updated_item = ShoppingListManager.update_item(item_id, **data)
+
+        if not updated_item:
+            return jsonify({'error': 'Item not found'}), 404
+
+        return jsonify({
+            'success': True,
+            'item': updated_item
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error updating item: {str(e)}'}), 500
+
+
+@app.route('/api/shopping-list/<item_id>', methods=['DELETE'])
+def remove_from_shopping_list(item_id):
+    """Remove item from shopping list."""
+    try:
+        from backend.shopping_list_manager import ShoppingListManager
+
+        ShoppingListManager.delete_item(item_id)
+
+        return jsonify({
+            'success': True,
+            'message': 'Item removed from shopping list'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error removing item: {str(e)}'}), 500
+
+
+@app.route('/api/shopping-list', methods=['DELETE'])
+def clear_shopping_list():
+    """Clear all items from shopping list."""
+    try:
+        from backend.shopping_list_manager import ShoppingListManager
+
+        ShoppingListManager.clear_shopping_list()
+
+        return jsonify({
+            'success': True,
+            'message': 'Shopping list cleared'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error clearing shopping list: {str(e)}'}), 500
 
 
 # ===== User Recipe Management =====

@@ -5,12 +5,14 @@
 A local web application that processes voice transcriptions and PDF receipts to build a food inventory, then suggests recipes based on available ingredients. Designed to reduce food waste and encourage creative cooking.
 
 **Key Features:**
-- Upload voice transcriptions (.txt) from Google Recorder
-- Upload PDF receipts to extract grocery items
-- Automatic item extraction using OpenAI GPT-4o-mini
-- Local-only storage (no cloud sync)
-- WiFi accessible from any device on same network
-- Mobile-responsive interface
+- **Inventory Management:** Upload voice transcriptions (.txt) from Google Recorder or PDF receipts to build food inventory
+- **Automatic Extraction:** OpenAI GPT-4o-mini intelligently extracts food items from transcriptions and receipts
+- **Unified Recipe Finder:** "What Can I Cook?" feature finds recipes from saved recipes + API, sorted by how many ingredients you already have
+- **Shopping List:** Quick add missing ingredients to a shopping list with checkbox tracking
+- **User Recipe Curation:** Import recipes from URLs/YouTube, save favorites, tag them, and build your personal recipe library
+- **Local Storage:** All data stored locally in JSON (no cloud sync)
+- **WiFi Accessible:** Access from any device on same network at `http://[computer-ip]:5000`
+- **Mobile Responsive:** Works great on phones, tablets, and desktops
 
 ---
 
@@ -40,7 +42,11 @@ meal-planner/
 │   ├── openai_client.py           # OpenAI API wrapper
 │   ├── transcription_processor.py # Processes .txt transcription files
 │   ├── receipt_handler.py         # Processes .pdf receipt files
-│   └── inventory_manager.py       # JSON-based inventory CRUD
+│   ├── inventory_manager.py       # JSON-based inventory CRUD
+│   ├── recipe_generator.py        # Unified recipe finder + meal planning
+│   ├── shopping_list_manager.py   # Shopping list CRUD operations
+│   ├── user_recipe_manager.py     # User-curated recipes storage
+│   └── recipe_importer.py         # Import recipes from URLs/text
 │
 ├── frontend/
 │   ├── index.html                 # Main HTML template
@@ -188,6 +194,73 @@ Update an item's details (quantity, notes, etc.).
 DELETE /api/inventory
 ```
 Remove all items from inventory.
+
+### Recipe Finding (Unified)
+
+#### Find Recipes by Inventory
+```
+GET /api/recipes/find-by-inventory?preferences=optional&limit=10
+```
+Find recipes matching current inventory. **Prioritizes saved recipes first, then API recipes.** Results sorted by fewest missing ingredients.
+
+**Response:**
+```json
+{
+  "success": true,
+  "count": 5,
+  "source": "mixed",
+  "recipes": [
+    {
+      "name": "Chicken Stir Fry",
+      "source": "saved",
+      "match_percentage": 100,
+      "has_ingredients": ["chicken", "onion", "garlic"],
+      "missing_ingredients": [],
+      "instructions": "..."
+    }
+  ]
+}
+```
+
+### Shopping List Management
+
+#### Get Shopping List
+```
+GET /api/shopping-list
+```
+Get all active (non-completed) shopping list items.
+
+#### Add to Shopping List
+```
+POST /api/shopping-list
+```
+Add missing ingredients to shopping list.
+
+**Request:**
+```json
+{
+  "items": [
+    {"name": "tomatoes", "quantity": 2, "unit": "pieces"},
+    {"name": "basil", "quantity": 1, "unit": "bunch"}
+  ]
+}
+```
+
+#### Update Item
+```
+PUT /api/shopping-list/{item_id}
+```
+Update item (e.g., mark as completed).
+
+#### Remove Item
+```
+DELETE /api/shopping-list/{item_id}
+```
+
+#### Clear All
+```
+DELETE /api/shopping-list
+```
 
 ---
 

@@ -339,119 +339,180 @@ def _generate_ingredient_combinations(ingredients: list, min_target: int, max_ta
     return combinations_list
 
 
-def search_recipes_by_type(inventory: list, recipe_type: str, num_results: int = 5) -> dict:
+def find_recipes_by_inventory(inventory: list, preferences: str = "", limit: int = 10) -> dict:
     """
-    Search for recipes of a specific type that match inventory ingredients.
-    Returns recipes with tracking of which ingredients user has vs needs to buy.
+    Find recipes matching current inventory (prioritizes saved recipes, then API recipes).
+
+    This unified recipe finder:
+    1. Loads user's saved recipes from local storage
+    2. Fetches recipes from API Ninjas
+    3. Matches each recipe against inventory
+    4. Returns sorted by: source (saved first), then fewest missing ingredients
 
     Args:
         inventory: List of available inventory items
-        recipe_type: Type of recipe to search for (e.g., "Italian Pasta", "Thai Curry")
-        num_results: Number of recipes to return (default: 5)
+        preferences: Optional user preferences/criteria (e.g., "Italian", "quick")
+        limit: Maximum recipes to return (default: 10)
 
     Returns:
-        Dict with success status and recipes with ingredient matching info
+        Dict with:
+        - success: boolean
+        - recipes: list of matched recipes with match info
+        - source: "saved", "api", or "mixed"
+        - error: error message if failed
     """
+    from backend.user_recipe_manager import UserRecipeManager
 
     if not inventory:
         return {"success": False, "error": "No inventory items available"}
 
-    if not recipe_type or not recipe_type.strip():
-        return {"success": False, "error": "Recipe type is required"}
-
-    # Extract inventory ingredient names (normalized)
-    inventory_items = {item.get("name", "").lower().strip() for item in inventory if item.get("name")}
+    # Extract normalized inventory items for matching
+    inventory_items_normalized = {item.get("name", "").lower().strip() for item in inventory if item.get("name")}
 
     try:
-        headers = {"X-Api-Key": API_NINJAS_KEY}
-        recipes_data = []
-        seen_recipes = set()
+        all_recipes = []
 
-        # Search for recipes matching the type
-        params = {"ingredients": recipe_type}
-
+        # PRIORITY 1: Load user's saved recipes
         try:
-            response = requests.get(
-                "https://api.api-ninjas.com/v2/recipe",
-                headers=headers,
-                params=params,
-                timeout=10
-            )
+            recipe_manager = UserRecipeManager('data')
+            saved_recipes = recipe_manager.get_all_recipes()
 
-            if response.status_code == 200:
-                data = response.json()
-                recipes_data.extend(data)
+            for recipe in saved_recipes:
+                recipe_with_meta = _match_recipe_to_inventory(
+                    recipe,
+                    inventory_items_normalized,
+                    source="saved"
+                )
+                all_recipes.append(recipe_with_meta)
         except Exception as e:
-            print(f"Error searching for {recipe_type}: {e}")
+            print(f"Warning: Could not load saved recipes: {e}")
 
-        if not recipes_data:
-            return {"success": False, "error": f"No recipes found for {recipe_type}"}
+        # PRIORITY 2: Fetch API recipes
+        try:
+            headers = {"X-Api-Key": API_NINJAS_KEY}
+            recipes_data = []
+            seen_recipes = set()
 
-        # Process recipes and match against inventory
-        formatted_recipes = []
+            # Extract ingredient names from inventory for API search
+            # Use simpler ingredient names (first word only for multi-word items)
+            ingredients = [item.get("name", "").strip().split()[0].lower() for item in inventory if item.get("name")]
 
-        for recipe in recipes_data[:num_results]:
-            recipe_title = recipe.get("title", "")
-            if recipe_title in seen_recipes:
-                continue
-            seen_recipes.add(recipe_title)
+            # Search for recipes using each ingredient individually
+            # API works better with single ingredients
+            for ingredient in ingredients[:10]:  # Limit to first 10 ingredients
+                if len(recipes_data) >= limit:
+                    break
 
-            # Parse recipe ingredients and match against inventory
-            recipe_ingredients = recipe.get("ingredients", [])
-            if isinstance(recipe_ingredients, list):
-                ingredient_list = recipe_ingredients
-            else:
-                ingredient_list = []
+                try:
+                    params = {"ingredients": ingredient}
+                    response = requests.get(
+                        "https://api.api-ninjas.com/v2/recipe",
+                        headers=headers,
+                        params=params,
+                        timeout=10
+                    )
 
-            # Match ingredients
-            has_ingredients = []
-            missing_ingredients = []
+                    if response.status_code == 200:
+                        data = response.json()
+                        recipes_data.extend(data)
+                except Exception as e:
+                    print(f"Warning: API search for '{ingredient}' failed: {e}")
+                    continue
 
-            for ingredient in ingredient_list:
-                ingredient_name = str(ingredient).lower().strip()
-                # Simple matching - check if any inventory item is in the ingredient name
-                found = False
-                for inv_item in inventory_items:
-                    if inv_item in ingredient_name or ingredient_name in inv_item:
-                        has_ingredients.append(ingredient)
-                        found = True
-                        break
-                if not found:
-                    missing_ingredients.append(ingredient)
+            # Format and match API recipes
+            for recipe_data in recipes_data[:limit]:
+                recipe_title = recipe_data.get("title", "")
+                if recipe_title not in seen_recipes:
+                    seen_recipes.add(recipe_title)
 
-            # Calculate match percentage
-            total_ingredients = len(ingredient_list)
-            match_percentage = (len(has_ingredients) / total_ingredients * 100) if total_ingredients > 0 else 0
+                    api_recipe = {
+                        "name": recipe_title,
+                        "ingredients": _format_api_ingredients(recipe_data.get("ingredients", [])),
+                        "instructions": recipe_data.get("instructions", ""),
+                        "servings": recipe_data.get("servings", ""),
+                        "source": "api"
+                    }
 
-            formatted_recipe = {
-                "name": recipe_title,
-                "servings": recipe.get("servings", "Not specified"),
-                "ingredients": _format_api_ingredients(recipe.get("ingredients", [])),
-                "instructions": recipe.get("instructions", "No instructions provided"),
-                "match_percentage": round(match_percentage, 1),
-                "has_ingredients": has_ingredients,
-                "missing_ingredients": missing_ingredients,
-                "total_ingredients": total_ingredients
-            }
-            formatted_recipes.append(formatted_recipe)
+                    recipe_with_meta = _match_recipe_to_inventory(
+                        api_recipe,
+                        inventory_items_normalized,
+                        source="api"
+                    )
+                    all_recipes.append(recipe_with_meta)
+        except Exception as e:
+            print(f"Warning: Could not fetch API recipes: {e}")
 
-        # Sort by match percentage (highest first)
-        formatted_recipes.sort(key=lambda x: x['match_percentage'], reverse=True)
+        if not all_recipes:
+            return {"success": False, "error": "No recipes found"}
+
+        # Sort by: saved recipes first, then by fewest missing ingredients
+        all_recipes.sort(key=lambda x: (
+            0 if x['source'] == 'saved' else 1,  # Saved recipes first
+            len(x['missing_ingredients'])  # Then by fewest missing
+        ))
 
         return {
             "success": True,
-            "count": len(formatted_recipes),
-            "recipe_type": recipe_type,
-            "source": "API Ninjas",
-            "recipes": formatted_recipes
+            "count": len(all_recipes),
+            "recipes": all_recipes[:limit],
+            "source": "mixed"
         }
 
-    except requests.exceptions.Timeout:
-        return {"success": False, "error": "API request timed out"}
-    except requests.exceptions.RequestException as e:
-        return {"success": False, "error": f"Error fetching recipes: {str(e)}"}
     except Exception as e:
-        return {"success": False, "error": f"Error processing recipes: {str(e)}"}
+        return {"success": False, "error": f"Error finding recipes: {str(e)}"}
+
+
+def _match_recipe_to_inventory(recipe: dict, inventory_items: set, source: str = "unknown") -> dict:
+    """
+    Match a recipe's ingredients against available inventory.
+
+    Args:
+        recipe: Recipe dict with 'name' and 'ingredients' list
+        inventory_items: Set of normalized inventory item names
+        source: Source of recipe ("saved", "api", etc.)
+
+    Returns:
+        Recipe dict with added match info:
+        - has_ingredients: ingredients you have
+        - missing_ingredients: ingredients you need
+        - match_percentage: % of ingredients available
+        - source: recipe source
+    """
+    recipe_ingredients = recipe.get("ingredients", [])
+    if not isinstance(recipe_ingredients, list):
+        recipe_ingredients = []
+
+    has_ingredients = []
+    missing_ingredients = []
+
+    for ing in recipe_ingredients:
+        if isinstance(ing, dict):
+            ing_name = ing.get("name", "").lower().strip()
+        else:
+            ing_name = str(ing).lower().strip()
+
+        # Fuzzy match: check if any inventory item is in the ingredient name
+        found = False
+        for inv_item in inventory_items:
+            if inv_item in ing_name or ing_name in inv_item:
+                has_ingredients.append(ing if isinstance(ing, dict) else {"name": ing})
+                found = True
+                break
+
+        if not found:
+            missing_ingredients.append(ing if isinstance(ing, dict) else {"name": ing})
+
+    total_ingredients = len(recipe_ingredients)
+    match_percentage = (len(has_ingredients) / total_ingredients * 100) if total_ingredients > 0 else 0
+
+    return {
+        **recipe,
+        "source": source,
+        "has_ingredients": has_ingredients,
+        "missing_ingredients": missing_ingredients,
+        "match_percentage": round(match_percentage, 1),
+        "total_ingredients": total_ingredients
+    }
 
 
 def get_suggested_recipes(inventory: list, num_suggestions: int = 5) -> dict:

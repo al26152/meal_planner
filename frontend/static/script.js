@@ -437,7 +437,8 @@ const shoppingListContent = document.getElementById('shoppingListContent');
 
 let currentMealPlan = null;
 
-// Generate meal plan
+// Generate meal plan (old code - kept for compatibility)
+if (generatePlanBtn) {
 generatePlanBtn.addEventListener('click', async () => {
     const numMeals = parseInt(numMealsInput.value);
     const criteria = mealCriteriaInput.value.trim();
@@ -454,6 +455,7 @@ generatePlanBtn.addEventListener('click', async () => {
 
     await generateMealPlan(numMeals, criteria);
 });
+}
 
 async function generateMealPlan(numMeals, criteria) {
     planLoading.style.display = 'block';
@@ -596,7 +598,8 @@ async function regenerateMealForIndex(index, mealNum) {
     }
 }
 
-// Shopping list
+// Shopping list (old code - kept for compatibility)
+if (shoppingListBtn) {
 shoppingListBtn.addEventListener('click', async () => {
     if (!currentMealPlan) {
         showPlanStatus('Please generate a meal plan first', 'error');
@@ -621,6 +624,7 @@ shoppingListBtn.addEventListener('click', async () => {
         showPlanStatus('✗ Error generating shopping list', 'error');
     }
 });
+}
 
 function displayShoppingList(byCategory, items) {
     let html = '';
@@ -666,16 +670,20 @@ function displayShoppingList(byCategory, items) {
     shoppingListContent.innerHTML = html;
 }
 
-// Close shopping list modal
+// Close shopping list modal (old code - kept for compatibility)
+if (closeShoppingListBtn) {
 closeShoppingListBtn.addEventListener('click', () => {
     shoppingListModal.style.display = 'none';
 });
+}
 
+if (shoppingListModal) {
 shoppingListModal.addEventListener('click', (e) => {
     if (e.target === shoppingListModal) {
         shoppingListModal.style.display = 'none';
     }
 });
+}
 
 function getIngredientSummary(ingredients) {
     // This is a simplified check - in a real app, we'd compare with inventory
@@ -768,7 +776,10 @@ const recipesDisplay = document.getElementById('recipesDisplay');
 
 let currentRecipeType = '';
 
+// Old recipe suggestions code - kept for compatibility
+if (getSuggestionsBtn) {
 getSuggestionsBtn.addEventListener('click', getAIRecipeSuggestions);
+}
 
 async function getAIRecipeSuggestions() {
     suggestionsLoading.style.display = 'block';
@@ -919,12 +930,195 @@ function showSearchStatus(message, type) {
     searchStatus.style.display = 'block';
 }
 
+// ===== What Can I Cook - Find Recipes by Inventory =====
+
+async function findRecipesByInventory() {
+    const preferences = document.getElementById('recipePreferences').value;
+    const findBtn = document.getElementById('findRecipesBtn');
+    const loadingDiv = document.getElementById('findRecipesLoading');
+    const statusDiv = document.getElementById('findRecipesStatus');
+    const resultsSection = document.getElementById('recipesResultsSection');
+    const resultsList = document.getElementById('recipesResultsList');
+
+    // Show loading
+    loadingDiv.style.display = 'flex';
+    statusDiv.innerHTML = '';
+    findBtn.disabled = true;
+
+    try {
+        const url = `/api/recipes/find-by-inventory?limit=10${preferences ? `&preferences=${encodeURIComponent(preferences)}` : ''}`;
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data.success) {
+            statusDiv.innerHTML = `<p class="error">${data.error || 'Failed to find recipes'}</p>`;
+            resultsSection.style.display = 'none';
+            return;
+        }
+
+        // Display results
+        displayRecipeResults(data.recipes);
+        document.getElementById('recipesCountDisplay').textContent = `${data.count} recipes found`;
+        resultsSection.style.display = 'block';
+
+    } catch (error) {
+        statusDiv.innerHTML = `<p class="error">Error: ${error.message}</p>`;
+        resultsSection.style.display = 'none';
+    } finally {
+        loadingDiv.style.display = 'none';
+        findBtn.disabled = false;
+    }
+}
+
+function displayRecipeResults(recipes) {
+    const resultsList = document.getElementById('recipesResultsList');
+    resultsList.innerHTML = '';
+
+    if (!recipes || recipes.length === 0) {
+        resultsList.innerHTML = '<p class="empty-state">No recipes found. Try adding more items to your inventory!</p>';
+        return;
+    }
+
+    recipes.forEach((recipe, index) => {
+        const sourceColor = recipe.source === 'saved' ? '#4CAF50' : '#2196F3';
+        const sourceBadge = recipe.source === 'saved' ? '📚 Saved' : '🌐 API';
+        const matchPct = recipe.match_percentage || 0;
+
+        const card = document.createElement('div');
+        card.className = 'recipe-card';
+        card.innerHTML = `
+            <div class="recipe-card-header">
+                <div>
+                    <h4 class="recipe-name">${recipe.name || 'Unknown Recipe'}</h4>
+                    <span class="recipe-source-badge" style="background-color: ${sourceColor};">${sourceBadge}</span>
+                </div>
+                <div class="recipe-match">${matchPct.toFixed(0)}% Match</div>
+            </div>
+
+            <div class="recipe-match-info">
+                <div class="has-ingredients">
+                    <strong>✓ Have (${recipe.has_ingredients ? recipe.has_ingredients.length : 0}):</strong>
+                    ${recipe.has_ingredients && recipe.has_ingredients.length > 0
+                        ? `<p>${recipe.has_ingredients.slice(0, 3).map(i => typeof i === 'string' ? i : i.name).join(', ')}${recipe.has_ingredients.length > 3 ? '...' : ''}</p>`
+                        : '<p>None</p>'}
+                </div>
+                <div class="missing-ingredients">
+                    <strong>✗ Missing (${recipe.missing_ingredients ? recipe.missing_ingredients.length : 0}):</strong>
+                    ${recipe.missing_ingredients && recipe.missing_ingredients.length > 0
+                        ? `<p style="color: #f44336;">${recipe.missing_ingredients.slice(0, 3).map(i => typeof i === 'string' ? i : i.name).join(', ')}${recipe.missing_ingredients.length > 3 ? '...' : ''}</p>`
+                        : '<p style="color: #4CAF50;">Nothing!</p>'}
+                </div>
+            </div>
+
+            <div class="recipe-actions">
+                ${recipe.missing_ingredients && recipe.missing_ingredients.length > 0
+                    ? `<button class="btn btn-small" onclick="showAddToShoppingListModal(${index})">+ Shopping List</button>`
+                    : '<span style="color: #4CAF50;">✓ Ready to cook!</span>'}
+                <button class="btn btn-small btn-secondary" onclick="viewRecipeDetails(${index})">View Recipe</button>
+                ${recipe.source !== 'saved' ? `<button class="btn btn-small" onclick="saveRecipeToLibrary(${index})">💾 Save</button>` : ''}
+            </div>
+        `;
+        resultsList.appendChild(card);
+
+        // Store recipe data on card for later use
+        card.recipeData = recipe;
+        card.recipeIndex = index;
+    });
+
+    // Store all recipes for reference
+    window.currentRecipes = recipes;
+}
+
+let currentRecipeIndexForShopping = null;
+
+function showAddToShoppingListModal(index) {
+    currentRecipeIndexForShopping = index;
+    const recipe = window.currentRecipes[index];
+    const modal = document.getElementById('shoppingListModal');
+    const itemsDiv = document.getElementById('shoppingListItems');
+
+    itemsDiv.innerHTML = `
+        <ul style="list-style: none; padding: 0;">
+            ${recipe.missing_ingredients.map((ing, i) => `
+                <li style="padding: 5px 0;">
+                    <input type="checkbox" id="item-${i}" checked>
+                    <label for="item-${i}" style="margin-left: 5px;">${typeof ing === 'string' ? ing : ing.name}</label>
+                </li>
+            `).join('')}
+        </ul>
+    `;
+
+    modal.style.display = 'block';
+}
+
+function closeShoppingListModal() {
+    document.getElementById('shoppingListModal').style.display = 'none';
+}
+
+async function confirmAddToShoppingList() {
+    if (currentRecipeIndexForShopping === null) return;
+
+    const recipe = window.currentRecipes[currentRecipeIndexForShopping];
+    const selectedItems = Array.from(document.querySelectorAll('#shoppingListItems input[type="checkbox"]:checked'))
+        .map((cb, i) => {
+            const ing = recipe.missing_ingredients[i];
+            return typeof ing === 'string' ? { name: ing, quantity: 1, unit: '' } : ing;
+        });
+
+    try {
+        const response = await fetch('/api/shopping-list', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ items: selectedItems })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            showStatus('✓ Added to shopping list!', 'success');
+            closeShoppingListModal();
+        } else {
+            showStatus('Error: ' + (data.error || 'Failed to add items'), 'error');
+        }
+    } catch (error) {
+        showStatus('Error: ' + error.message, 'error');
+    }
+}
+
+function viewRecipeDetails(index) {
+    const recipe = window.currentRecipes[index];
+    alert(`${recipe.name}\n\nIngredients:\n${recipe.ingredients.map(i => `- ${typeof i === 'string' ? i : i.name}`).join('\n')}\n\nInstructions:\n${recipe.instructions || 'No instructions'}`);
+}
+
+function saveRecipeToLibrary(index) {
+    alert('Save to library feature coming soon!');
+}
+
+function showStatus(message, type) {
+    const statusDiv = document.getElementById('findRecipesStatus');
+    statusDiv.innerHTML = `<p class="${type}">${message}</p>`;
+    setTimeout(() => { statusDiv.innerHTML = ''; }, 3000);
+}
+
 // ===== Initialize =====
 
 // Load dark mode and inventory on page load
 document.addEventListener('DOMContentLoaded', () => {
     initDarkMode();
     loadInventory();
+
+    // Add "What Can I Cook?" button listener
+    const findBtn = document.getElementById('findRecipesBtn');
+    if (findBtn) {
+        findBtn.addEventListener('click', findRecipesByInventory);
+    }
+
+    // Close shopping list modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('shoppingListModal');
+        if (event.target === modal) {
+            modal.style.display = 'none';
+        }
+    };
 
     // Refresh inventory every 30 seconds
     setInterval(loadInventory, 30000);

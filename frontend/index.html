@@ -3,57 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meal Planner - Inventory</title>
+    <title>Meal Planner</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>🍽️ Meal Planner Inventory</h1>
-            <p class="subtitle">Upload voice transcriptions and manage your food inventory</p>
+            <div class="header-top">
+                <div>
+                    <h1>🍽️ Meal Planner</h1>
+                    <p class="subtitle">Manage inventory and plan delicious meals with ease</p>
+                </div>
+                <button id="darkModeToggle" class="dark-mode-toggle" title="Toggle dark mode">🌙</button>
+            </div>
         </header>
 
+        <!-- Tab Navigation -->
+        <nav class="tabs-nav">
+            <div class="tabs-container">
+                <button class="tab-btn active" data-tab="inventory-tab">
+                    <span class="tab-icon">📦</span>
+                    Inventory
+                </button>
+                <button class="tab-btn" data-tab="recipes-tab">
+                    <span class="tab-icon">📖</span>
+                    My Recipes
+                </button>
+                <button class="tab-btn" data-tab="shopping-list-tab">
+                    <span class="tab-icon">🛒</span>
+                    Shopping List
+                </button>
+            </div>
+        </nav>
+
         <main>
-            <!-- Upload Section -->
-            <section class="card upload-section">
-                <h2>Upload Transcription or Receipt</h2>
-                <p class="description">Upload a .txt file from Google Recorder or a .pdf receipt</p>
+            <!-- Inventory Tab -->
+            <div id="inventory-tab" class="tab-content active">
+                <!-- Upload Section -->
+                <section class="card upload-section">
+                    <h2>Upload Transcription or Receipt</h2>
+                    <p class="description">Upload a .txt file from Google Recorder or a .pdf receipt</p>
 
-                <div class="upload-area" id="uploadArea">
-                    <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                        <polyline points="17 8 12 3 7 8"></polyline>
-                        <line x1="12" y1="3" x2="12" y2="15"></line>
-                    </svg>
-                    <p>Drag and drop your .txt or .pdf file here or click to select</p>
-                    <input type="file" id="fileInput" accept=".txt,.pdf" hidden>
-                </div>
-
-                <div id="uploadControls" style="display: none;">
-                    <button id="uploadBtn" class="btn btn-primary">Upload</button>
-                    <button id="cancelBtn" class="btn btn-secondary" style="margin-left: 10px;">Cancel</button>
-                </div>
-                <div id="uploadLoading" class="upload-loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>Processing your file...</p>
-                </div>
-                <div id="uploadStatus" class="status-message"></div>
-            </section>
-
-            <!-- Inventory Section -->
-            <section class="card inventory-section">
-                <div class="section-header">
-                    <h2>Current Inventory</h2>
-                    <div class="controls">
-                        <span class="item-count" id="itemCount">0 items</span>
-                        <button id="clearBtn" class="btn btn-danger-small" title="Clear all items">Clear All</button>
+                    <div class="upload-area" id="uploadArea">
+                        <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <p>Drag and drop your .txt or .pdf file here or click to select</p>
+                        <input type="file" id="fileInput" accept=".txt,.pdf" hidden>
                     </div>
-                </div>
 
-                <div id="inventoryContainer" class="inventory-container">
-                    <p class="empty-state">No items in inventory. Upload a transcription to get started!</p>
-                </div>
-            </section>
+                    <div id="uploadControls" style="display: none;">
+                        <button id="uploadBtn" class="btn btn-primary">Upload</button>
+                        <button id="cancelBtn" class="btn btn-secondary" style="margin-left: 10px;">Cancel</button>
+                    </div>
+                    <div id="uploadLoading" class="upload-loading" style="display: none;">
+                        <div class="spinner"></div>
+                        <p>Processing your file...</p>
+                    </div>
+                    <div id="uploadStatus" class="status-message"></div>
+                </section>
+
+                <!-- Quick Add Section -->
+                <section class="card quick-add-section">
+                    <h2>Quick Add Ingredient</h2>
+                    <p class="description">Manually add ingredients without uploading a file</p>
+
+                    <div class="form-group">
+                        <label for="quickAddInput">Enter ingredient(s)</label>
+                        <input type="text"
+                               id="quickAddInput"
+                               placeholder="e.g., 2 lbs chicken, 3 tomatoes, 1 gallon milk"
+                               class="quick-add-input">
+                    </div>
+
+                    <button id="quickAddBtn" class="btn btn-primary">Add to Inventory</button>
+                    <div id="quickAddStatus" class="status-message"></div>
+                </section>
+
+                <!-- Inventory Section -->
+                <section class="card inventory-section">
+                    <div class="section-header">
+                        <h2>Current Inventory</h2>
+                        <div class="controls">
+                            <span class="item-count" id="itemCount">0 items</span>
+                            <button id="clearBtn" class="btn btn-danger-small" title="Clear all items">Clear All</button>
+                        </div>
+                    </div>
+
+                    <div id="inventoryContainer" class="inventory-container">
+                        <p class="empty-state">No items in inventory. Upload a transcription to get started!</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Shopping List Tab -->
+            <div id="shopping-list-tab" class="tab-content">
+                <section class="card shopping-list-section">
+                    <div class="section-header">
+                        <h2>Shopping List</h2>
+                        <div class="controls">
+                            <button id="clearShoppingBtn" class="btn btn-danger-small" title="Clear all items">Clear All</button>
+                        </div>
+                    </div>
+
+                    <div id="shoppingListContainer" class="shopping-list-container">
+                        <p class="empty-state">No items in shopping list. Add missing ingredients from your recipes!</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Recipes Tab -->
+            <div id="recipes-tab" class="tab-content">
+                <!-- Import Recipe Section -->
+                <section class="card recipe-import-section">
+                    <div class="section-header">
+                        <h2>Import a Recipe</h2>
+                    </div>
+
+                    <div class="recipe-import-form">
+                        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <button class="tab-like-btn active" onclick="recipeManager.switchImportMode('url')">Import from URL</button>
+                            <button class="tab-like-btn" onclick="recipeManager.switchImportMode('paste')">Paste Recipe</button>
+                        </div>
+
+                        <!-- URL Import Mode -->
+                        <div id="urlImportMode">
+                            <div class="form-group">
+                                <label for="recipeUrl">Recipe URL (website or YouTube):</label>
+                                <input type="text" id="recipeUrl" placeholder="https://example.com/recipe..." />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recipeTags">Tags (comma-separated, e.g., "asian, quick, vegetarian"):</label>
+                                <input type="text" id="recipeTags" placeholder="Enter tags..." />
+                            </div>
+
+                            <button id="importRecipeBtn" class="btn btn-primary">Import Recipe</button>
+                        </div>
+
+                        <!-- Paste Mode -->
+                        <div id="pasteImportMode" style="display: none;">
+                            <div class="form-group">
+                                <label for="recipeText">Paste full recipe (ingredients + instructions):</label>
+                                <textarea id="recipeText" placeholder="Paste entire recipe here - ingredients and instructions..." class="recipe-textarea" style="min-height: 150px;"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recipeTextYouTubeUrl">YouTube Video URL (optional):</label>
+                                <input type="text" id="recipeTextYouTubeUrl" placeholder="https://www.youtube.com/watch?v=..." />
+                            </div>
+
+                            <div class="form-group">
+                                <label for="recipeTextTags">Tags (comma-separated):</label>
+                                <input type="text" id="recipeTextTags" placeholder="Enter tags..." />
+                            </div>
+
+                            <button id="parseRecipeBtn" class="btn btn-primary">Parse & Edit Recipe</button>
+                        </div>
+
+                        <div id="importStatus" class="status-message" style="margin-top: 15px;"></div>
+                    </div>
+                </section>
+
+                <!-- Recipe Library Section -->
+                <section class="card recipe-library-section">
+                    <div class="section-header">
+                        <h2>My Recipe Library</h2>
+                        <div class="controls">
+                            <input type="text" id="recipeSearch" placeholder="Search recipes..." class="recipe-search-input" />
+                            <span class="recipe-count" id="recipeCount">0 recipes</span>
+                        </div>
+                    </div>
+
+                    <div id="recipesLibraryContainer" class="recipes-library">
+                        <p class="empty-state">No recipes yet. Import one to get started!</p>
+                    </div>
+                </section>
+            </div>
         </main>
 
         <footer>
@@ -61,6 +189,33 @@
         </footer>
     </div>
 
+    <!-- Shopping List Modal -->
+    <div id="shoppingListModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Shopping List</h2>
+                <button class="modal-close" id="closeShoppingListBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="shoppingListContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recipe Details Modal -->
+    <div id="recipeDetailModal" class="modal" style="display: none;">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2 id="recipeDetailTitle">Recipe Name</h2>
+                <button class="modal-close" id="closeRecipeDetailBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="recipeDetailContent"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
+    <script src="{{ url_for('static', filename='recipes.js') }}"></script>
 </body>
 </html>

@@ -195,9 +195,10 @@
                         </div>
                     </div>
 
-                    <!-- Generate Shopping List -->
+                    <!-- Generate Shopping List & Meal Plan Export -->
                     <div class="planning-actions" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
                         <button id="generateShoppingBtn" class="btn btn-primary" style="margin-right: 10px;">Generate Shopping List</button>
+                        <button id="exportMealPlanBtn" class="btn btn-primary" style="margin-right: 10px;">📄 Export Meal Plan</button>
                         <button id="clearPlanBtn" class="btn btn-secondary">Clear Plan</button>
                     </div>
 
@@ -216,6 +217,23 @@
                         </div>
 
                         <div id="copyStatus" class="status-message"></div>
+                    </div>
+
+                    <!-- Meal Plan Export -->
+                    <div id="mealPlanExport" class="shopping-preview" style="display: none; margin-top: 30px;">
+                        <h3>Weekly Meal Plan</h3>
+                        <p class="description">Copy your meal plan for the week below</p>
+
+                        <div class="csv-output">
+                            <textarea id="mealPlanText" class="csv-textarea" readonly></textarea>
+                        </div>
+
+                        <div class="csv-actions">
+                            <button id="copyMealPlanBtn" class="btn btn-primary">📋 Copy to Clipboard</button>
+                            <button id="downloadMealPlanBtn" class="btn btn-secondary">⬇️ Download as Text</button>
+                        </div>
+
+                        <div id="mealPlanCopyStatus" class="status-message"></div>
                     </div>
                 </section>
             </div>

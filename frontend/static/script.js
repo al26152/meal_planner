@@ -1395,6 +1395,83 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(a);
     });
 
+    // Generate meal plan text export
+    document.getElementById('exportMealPlanBtn').addEventListener('click', () => {
+        // Check if all days have meals selected
+        if (Object.keys(currentPlan).length !== 5) {
+            alert(`Please select meals for all 5 days. Selected: ${Object.keys(currentPlan).length}/5`);
+            return;
+        }
+
+        // Generate meal plan text
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        const today = new Date();
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay() + 1); // Get Monday of this week
+
+        let mealPlanText = '═══════════════════════════════════════\n';
+        mealPlanText += '      WEEKLY MEAL PLAN\n';
+        mealPlanText += '═══════════════════════════════════════\n\n';
+
+        days.forEach(day => {
+            const meal = currentPlan[day];
+            const dayIndex = days.indexOf(day);
+            const dayDate = new Date(weekStart);
+            dayDate.setDate(weekStart.getDate() + dayIndex);
+            const dateStr = dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+            const dayName = day.charAt(0).toUpperCase() + day.slice(1);
+            mealPlanText += `${dayName} (${dateStr})\n`;
+            mealPlanText += '─────────────────────────────────────\n';
+
+            if (meal) {
+                mealPlanText += `Dinner: ${meal.name}\n`;
+            } else {
+                mealPlanText += 'Dinner: Not selected\n';
+            }
+
+            mealPlanText += '\n';
+        });
+
+        mealPlanText += '═══════════════════════════════════════\n';
+        mealPlanText += `Generated: ${new Date().toLocaleString()}\n`;
+        mealPlanText += '═══════════════════════════════════════\n';
+
+        // Display meal plan
+        document.getElementById('mealPlanText').value = mealPlanText;
+        document.getElementById('mealPlanExport').style.display = 'block';
+    });
+
+    // Copy meal plan to clipboard
+    document.getElementById('copyMealPlanBtn').addEventListener('click', () => {
+        const text = document.getElementById('mealPlanText');
+        text.select();
+        document.execCommand('copy');
+
+        const status = document.getElementById('mealPlanCopyStatus');
+        status.textContent = '✓ Copied to clipboard!';
+        status.className = 'status-message success';
+        status.style.display = 'block';
+
+        setTimeout(() => {
+            status.style.display = 'none';
+        }, 3000);
+    });
+
+    // Download meal plan as text file
+    document.getElementById('downloadMealPlanBtn').addEventListener('click', () => {
+        const text = document.getElementById('mealPlanText').value;
+        const blob = new Blob([text], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `meal-plan-${new Date().toISOString().split('T')[0]}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    });
+
     // Clear plan
     document.getElementById('clearPlanBtn').addEventListener('click', () => {
         if (confirm('Clear the entire meal plan?')) {
@@ -1404,6 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 recipeDiv.innerHTML = '<p class="empty">No recipe selected</p>';
             });
             document.getElementById('shoppingPreview').style.display = 'none';
+            document.getElementById('mealPlanExport').style.display = 'none';
         }
     });
 

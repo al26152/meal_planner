@@ -390,6 +390,11 @@ body.dark-mode .inventory-item {
     background-color: var(--primary-dark);
 }
 
+.btn-primary:active {
+    background-color: #1e40af;
+    transform: scale(0.98);
+}
+
 .btn-danger-small {
     padding: 6px 12px;
     font-size: 0.9rem;
@@ -401,6 +406,11 @@ body.dark-mode .inventory-item {
     background-color: #b91c1c;
 }
 
+.btn-danger-small:active {
+    background-color: #991b1b;
+    transform: scale(0.98);
+}
+
 .btn-secondary {
     background-color: #6b7280;
     color: white;
@@ -408,6 +418,11 @@ body.dark-mode .inventory-item {
 
 .btn-secondary:hover {
     background-color: #4b5563;
+}
+
+.btn-secondary:active {
+    background-color: #374151;
+    transform: scale(0.98);
 }
 
 /* Status Messages */
@@ -974,6 +989,11 @@ body.dark-mode .instructions-section p {
     background-color: #4b5563;
 }
 
+.btn-secondary-small:active {
+    background-color: #374151;
+    transform: scale(0.98);
+}
+
 /* Modal */
 .modal {
     position: fixed;
@@ -1357,6 +1377,11 @@ body.dark-mode .shopping-category li {
     background: #1565C0;
 }
 
+.btn-small:active {
+    background: #0d47a1;
+    transform: scale(0.98);
+}
+
 .btn-small.btn-secondary {
     background: var(--text-light);
     color: white;
@@ -1364,6 +1389,11 @@ body.dark-mode .shopping-category li {
 
 .btn-small.btn-secondary:hover {
     background: #666;
+}
+
+.btn-small.btn-secondary:active {
+    background: #4a4a4a;
+    transform: scale(0.98);
 }
 
 /* Shopping List Modal */

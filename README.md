@@ -1,4 +1,5 @@
-# Meal Planner - Developer Implementation Guide
+# Meal Planner - Local Recipe & Inventory Management
+**Last Updated:** November 15, 2025
 
 ## Overview
 
@@ -39,23 +40,30 @@ meal-planner/
 │
 ├── backend/
 │   ├── __init__.py
-│   ├── openai_client.py           # OpenAI API wrapper
+│   ├── openai_client.py           # OpenAI API wrapper + recipe adaptation
 │   ├── transcription_processor.py # Processes .txt transcription files
 │   ├── receipt_handler.py         # Processes .pdf receipt files
 │   ├── inventory_manager.py       # JSON-based inventory CRUD
 │   ├── recipe_generator.py        # Unified recipe finder + meal planning
 │   ├── shopping_list_manager.py   # Shopping list CRUD operations
-│   ├── user_recipe_manager.py     # User-curated recipes storage
-│   └── recipe_importer.py         # Import recipes from URLs/text
+│   ├── shopping_list_generator.py # Generate shopping lists from meal plans
+│   ├── user_recipe_manager.py     # User-curated recipes storage & search
+│   ├── recipe_importer.py         # Import recipes from URLs/YouTube/text
+│   ├── recipe_curator.py          # Recipe curation helpers
+│   └── meal_plan_manager.py       # Meal plan storage & retrieval
 │
 ├── frontend/
 │   ├── index.html                 # Main HTML template
 │   └── static/
-│       ├── styles.css             # Styling
-│       └── script.js              # Client-side logic
+│       ├── styles.css             # Styling (with dark mode)
+│       ├── script.js              # Core client-side logic
+│       └── recipes.js             # Recipe library UI logic
 │
 └── data/
     ├── inventory.json             # Persisted inventory items
+    ├── user_recipes.json          # User's curated recipes
+    ├── shopping_list.json         # Shopping list items
+    ├── meal_plans.json            # Saved meal plans
     └── uploads/
         ├── transcriptions/        # Uploaded .txt files
         └── receipts/              # Uploaded .pdf files
@@ -68,6 +76,7 @@ meal-planner/
 ### Prerequisites
 - Python 3.11+ installed
 - OpenAI API key (https://platform.openai.com/api/keys)
+- API Ninjas key for recipe search (https://api-ninjas.com/register)
 - pip (Python package manager)
 
 ### Step-by-Step Setup
@@ -92,9 +101,10 @@ pip install -r requirements.txt
 ```
 
 #### 4. Create `.env` File
-Copy `.env.template` to `.env` and add your OpenAI API key:
+Copy `.env.template` to `.env` and add your API keys:
 ```bash
 OPENAI_API_KEY=sk-proj-your-key-here
+API_NINJAS_KEY=your-api-ninjas-key-here
 FLASK_ENV=development
 FLASK_DEBUG=True
 ```
@@ -195,6 +205,51 @@ DELETE /api/inventory
 ```
 Remove all items from inventory.
 
+### Meal Plans
+
+#### Generate Meal Plan
+```
+POST /api/meal-plans/generate
+```
+Generate AI-powered meal plan based on current inventory.
+
+**Request:**
+```json
+{
+  "num_meals": 5,
+  "criteria": "quick and asian-inspired",
+  "use_curated": true
+}
+```
+
+#### Get All Meal Plans
+```
+GET /api/meal-plans
+```
+Retrieve all saved meal plans.
+
+#### Get Specific Meal Plan
+```
+GET /api/meal-plans/{plan_id}
+```
+
+#### Delete Meal Plan
+```
+DELETE /api/meal-plans/{plan_id}
+```
+
+#### Regenerate Single Meal
+```
+POST /api/meal-plans/{plan_id}/regenerate-meal
+```
+Regenerate just one meal in a plan.
+
+#### Generate Shopping List from Plan
+```
+POST /api/meal-plans/{plan_id}/shopping-list
+```
+Create a shopping list of missing ingredients for a meal plan.
+
 ### Recipe Finding (Unified)
 
 #### Find Recipes by Inventory
@@ -260,6 +315,108 @@ DELETE /api/shopping-list/{item_id}
 #### Clear All
 ```
 DELETE /api/shopping-list
+```
+
+### User Recipes Management
+
+#### Get User Recipes
+```
+GET /api/user-recipes
+```
+Get all user-curated recipes with optional filtering.
+
+**Query Parameters:**
+- `q` - Search by recipe name
+- `tags` - Filter by tags (e.g., `?tags=asian&tags=quick`)
+- `ingredients` - Filter by ingredients
+
+#### Create Recipe
+```
+POST /api/user-recipes
+```
+Create a new recipe manually or from imported data.
+
+**Request:**
+```json
+{
+  "name": "Chicken Stir Fry",
+  "ingredients": ["chicken", "onion", "garlic", "soy sauce"],
+  "instructions": "Heat oil, add chicken, then vegetables...",
+  "tags": ["asian", "quick"],
+  "notes": "Great weeknight meal"
+}
+```
+
+#### Get Recipe by ID
+```
+GET /api/user-recipes/{recipe_id}
+```
+
+#### Update Recipe
+```
+PUT /api/user-recipes/{recipe_id}
+```
+
+#### Delete Recipe
+```
+DELETE /api/user-recipes/{recipe_id}
+```
+
+#### Get Recipes by Tag
+```
+GET /api/user-recipes/search-by-tag/{tag}
+```
+
+#### Match Recipes to Ingredients
+```
+POST /api/user-recipes/match-ingredients
+```
+Find recipes that use specified ingredients.
+
+**Request:**
+```json
+{
+  "ingredients": ["chicken", "garlic", "onion"]
+}
+```
+
+#### Adapt Recipe to Inventory
+```
+GET /api/user-recipes/{recipe_id}/adapt
+```
+Get AI adaptation analysis showing which ingredients you have and what's missing.
+
+### Recipe Import
+
+#### Import Recipe from URL or Text
+```
+POST /api/recipes/import
+```
+Import recipes from website URLs, YouTube videos, or plain text.
+
+**Request (URL):**
+```json
+{
+  "url": "https://www.example.com/recipe/chicken-stir-fry",
+  "tags": ["asian", "quick"],
+  "notes": "Found on food blog"
+}
+```
+
+**Request (YouTube):**
+```json
+{
+  "url": "https://youtube.com/watch?v=...",
+  "tags": ["video-recipe"]
+}
+```
+
+**Request (Text Content):**
+```json
+{
+  "content": "Chicken Stir Fry\nIngredients: chicken, soy sauce...\nInstructions: ...",
+  "tags": ["quick"]
+}
 ```
 
 ---
@@ -477,34 +634,95 @@ When moving to production:
 
 ---
 
+## Recent Changes & Fixes
+
+### November 15, 2025
+- Updated README to reflect current implementation status
+- All major phases now documented and completed
+
+### November 13, 2025 - Unified Recipe Finder Refactor
+**What Changed:**
+- Consolidated recipe finding into single unified endpoint (`/api/recipes/find-by-inventory`)
+- Eliminated duplicate recipe search logic (removed old 2-step process)
+- Integrated shopping list management with recipe finding
+- Simplified frontend UI with "What Can I Cook?" tab
+
+**Key Improvements:**
+- User's saved recipes now prioritized over API results
+- Single-click add missing ingredients to shopping list
+- Reduced code complexity and improved maintainability
+- Better mobile experience
+
+### November 11, 2025 - System Stability & Recipe Curation
+**Critical Crash Fix:**
+- Fixed memory exhaustion crash caused by combinatorial explosion
+- Problem: 30 ingredients = 155 million combinations = 5-10GB RAM needed
+- Solution: Implemented smart random sampling algorithm
+- Added 60-second timeouts to all OpenAI API calls (prevents hanging)
+
+**New Features:**
+- User recipe manager: Save, import, and curate recipes
+- Recipe importer: Extract recipes from URLs, YouTube, and plain text
+- Recipe adaptation: AI analyzes recipe vs your inventory, suggests substitutions
+- Recipe prioritization: Your curated recipes take priority over API results
+- Enhanced meal planning with curated recipe integration
+
+---
+
 ## Development Phases
 
 ### Phase 1: MVP ✅ COMPLETE
 - [x] Flask backend setup
-- [x] Voice transcription processing
-- [x] PDF receipt parsing
-- [x] Inventory storage & retrieval
-- [x] Web interface (HTML/CSS/JS)
-- [x] WiFi accessibility
+- [x] Voice transcription processing (Google Recorder .txt files)
+- [x] PDF receipt parsing with text extraction
+- [x] Inventory storage & retrieval (JSON-based)
+- [x] Web interface (HTML5/CSS3/Vanilla JS)
+- [x] WiFi accessibility (0.0.0.0:5000)
 
-### Phase 2: Receipt Integration (Ready)
-- [ ] Cross-reference receipts with inventory
-- [ ] Track usage prompts ("Did you use this?")
-- [ ] Receipt history timeline
-- [ ] Price tracking
+### Phase 2: Recipe Integration ✅ COMPLETE
+- [x] Unified recipe finder endpoint
+- [x] Query OpenAI + API Ninjas for recipes
+- [x] Match recipes to current inventory
+- [x] Sort by ingredient availability
+- [x] Display recipes with match percentage
+- [x] Show missing ingredients
 
-### Phase 3: Recipe Suggestions (Planned)
-- [ ] Recipe suggestion endpoint
-- [ ] Query OpenAI with inventory
-- [ ] Display recipes in UI
-- [ ] Filter by dietary preferences
+### Phase 3: User Recipe Curation ✅ COMPLETE (Nov 11)
+- [x] User recipe storage (JSON-based)
+- [x] Recipe CRUD operations (Create, Read, Update, Delete)
+- [x] Import recipes from URLs/YouTube
+- [x] AI-powered recipe import (auto-extracts ingredients, instructions)
+- [x] Tag and search recipes
+- [x] Recipe adaptation analysis (what you have vs missing)
+- [x] Prioritize user recipes over API results
 
-### Phase 4: Polish & Optimization (Future)
+### Phase 4: Shopping List Management ✅ COMPLETE (Nov 13)
+- [x] Shopping list CRUD operations
+- [x] Quick add missing ingredients from recipes
+- [x] Mark items as completed
+- [x] Generate shopping list from meal plans
+- [x] Persistent storage
+- [x] Category organization
+
+### Phase 5: System Optimization ✅ COMPLETE (Nov 11)
+- [x] Fixed memory crash (replaced combinatorial explosion with smart sampling)
+- [x] Added 60s timeouts to OpenAI API calls
+- [x] Prevent hanging requests
+- [x] Recipe prioritization logic
+
+### Phase 6: Polish & Enhancement (In Progress)
 - [ ] OCR for receipt scanning
-- [ ] Recipe rating/feedback
-- [ ] Shopping list generation
-- [ ] Database migration
+- [ ] Recipe rating/feedback system
+- [ ] Cooking history tracking
+- [ ] Nutritional information
+- [ ] Batch meal planning
+- [ ] Expiration date tracking & alerts
+- [ ] Recipe export (PDF/CSV)
+- [ ] Multi-user support with authentication
+- [ ] Database migration (SQLite/PostgreSQL)
 - [ ] Mobile app wrapper
+- [ ] Offline mode with Service Workers
+- [ ] Food waste analytics
 
 ---
 
@@ -568,16 +786,25 @@ pdfplumber==0.10.4             # PDF text extraction
 
 ## Future Enhancements
 
-1. **Database:** SQLite/PostgreSQL for better querying
-2. **Authentication:** User login for multi-user support
-3. **Shopping List:** Auto-generate from missing recipe ingredients
-4. **OCR:** Direct photo upload for receipt scanning
-5. **Export:** CSV/PDF export of inventory
-6. **Notifications:** Expiration alerts
-7. **Recipes:** Full recipe database with ratings
-8. **Mobile App:** React Native or Flutter wrapper
-9. **Offline Mode:** Service worker for offline access
-10. **Analytics:** Track food waste patterns
+### Already Implemented ✅
+- Shopping list management with CRUD operations
+- User recipe library with import/export from URLs
+- Recipe matching to inventory
+- AI-powered recipe adaptation
+
+### Planned Enhancements 🚀
+1. **OCR Integration:** Direct photo upload for receipt scanning (smartphone camera)
+2. **Recipe Ratings:** User ratings and reviews of recipes
+3. **Cooking History:** Track which recipes you've cooked and results
+4. **Nutritional Analysis:** Calorie, macro, and micronutrient tracking
+5. **Meal Planning:** Generate 7-day meal plans based on preferences
+6. **Expiration Tracking:** Alerts for ingredients expiring soon
+7. **Export Features:** CSV/PDF export of inventory and shopping lists
+8. **Database Migration:** Move from JSON to SQLite/PostgreSQL for scalability
+9. **Authentication:** User accounts for multi-user scenarios
+10. **Mobile App:** Native iOS/Android wrapper with offline mode
+11. **Analytics Dashboard:** Track food waste patterns and savings
+12. **Recipe Suggestions:** Learn from your cooking preferences
 
 ---
 

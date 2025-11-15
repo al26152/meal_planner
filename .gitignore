@@ -50,3 +50,6 @@ Thumbs.db
 SESSION_SUMMARY.md
 PROGRESS.md
 *.local.md
+
+# Windows null device (prevents accidental nul files from being created)
+nul

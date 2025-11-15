@@ -7,7 +7,7 @@ from backend.receipt_handler import process_receipt_file, save_uploaded_file as 
 from backend.inventory_manager import InventoryManager
 from backend.meal_plan_manager import MealPlanManager
 from backend.recipe_generator import generate_meal_plan, generate_unified_meal_plan, regenerate_single_meal, generate_meal_plan_with_curated
-from backend.openai_client import adapt_recipe_to_inventory
+from backend.openai_client import adapt_recipe_to_inventory, parse_manual_ingredient
 from backend.shopping_list_generator import generate_shopping_list
 from backend.user_recipe_manager import UserRecipeManager
 from backend.recipe_importer import import_recipe_from_url, import_recipe_from_youtube, extract_recipe_from_text
@@ -149,6 +149,35 @@ def clear_inventory():
         return jsonify({'success': True, 'message': 'Inventory cleared'}), 200
     except Exception as e:
         return jsonify({'error': f'Error clearing inventory: {str(e)}'}), 500
+
+
+@app.route('/api/inventory/add', methods=['POST'])
+def add_inventory_item():
+    """Add a single item to inventory manually via free-text input."""
+    try:
+        data = request.json
+        user_input = data.get('text', '').strip()
+
+        if not user_input:
+            return jsonify({'error': 'Please enter an ingredient'}), 400
+
+        # Parse the user input using OpenAI
+        parsed_items = parse_manual_ingredient(user_input)
+
+        if not parsed_items:
+            return jsonify({'error': 'Could not parse the ingredient. Please try again with a clearer description (e.g., "2 lbs chicken" or "3 tomatoes")'}), 400
+
+        # Add items to inventory
+        added_items = InventoryManager.add_items_batch(parsed_items, source='manual')
+
+        return jsonify({
+            'success': True,
+            'message': f'Added {len(added_items)} item(s) to inventory',
+            'items': added_items
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error adding item: {str(e)}'}), 500
 
 
 # ===== Meal Planning Routes =====

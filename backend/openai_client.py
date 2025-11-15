@@ -200,6 +200,92 @@ Return JSON array:"""
         return []
 
 
+def parse_manual_ingredient(user_input: str) -> list:
+    """
+    Parse manually entered ingredient text using OpenAI.
+    Handles natural language input like "2 lbs chicken, 3 tomatoes, 1 gallon milk"
+
+    Args:
+        user_input: Free-text ingredient input from user
+
+    Returns:
+        List of parsed items with name, quantity, unit, and category
+    """
+
+    prompt = f"""Parse this ingredient entry into structured format. Extract each food item mentioned.
+
+For each item, provide:
+- name: the food item name (string, lowercase, no special characters)
+- quantity: the amount (number, default 1 if not specified)
+- unit: measurement unit (grams, kg, ml, l, pieces, lbs, oz, cup, tbsp, tsp, etc. Use "pieces" if not specified)
+- category: food category (dairy, produce, meat, pantry, frozen, beverages, bakery, snacks, other)
+
+RULES:
+- Parse multiple items separated by commas
+- Convert common abbreviations (lbs→lbs, oz→oz, etc.)
+- If unit is ambiguous, guess the most likely (e.g., "2 chicken" → quantity: 2, unit: "pieces")
+- Return ONLY valid JSON array, NO explanations
+
+User input: {user_input}
+
+Return JSON array:"""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a food inventory assistant. Parse ingredient text accurately and return only valid JSON."
+                },
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            temperature=0.2,  # Very low for consistent parsing
+            max_tokens=1000,
+            timeout=60.0
+        )
+
+        response_text = response.choices[0].message.content.strip()
+
+        # Handle markdown code blocks
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+
+        items = json.loads(response_text)
+
+        # Validate items
+        if not isinstance(items, list):
+            items = [items] if isinstance(items, dict) else []
+
+        # Ensure all items have required fields
+        validated_items = []
+        for item in items:
+            if isinstance(item, dict) and "name" in item:
+                validated_item = {
+                    "name": str(item.get("name", "")).lower().strip(),
+                    "quantity": float(item.get("quantity", 1)),
+                    "unit": str(item.get("unit", "pieces")).lower().strip(),
+                    "category": str(item.get("category", "other")).lower().strip()
+                }
+                # Only add if name is not empty
+                if validated_item["name"]:
+                    validated_items.append(validated_item)
+
+        return validated_items
+
+    except json.JSONDecodeError as e:
+        print(f"Error parsing manual ingredient JSON: {e}")
+        return []
+    except Exception as e:
+        print(f"Error parsing manual ingredient: {e}")
+        return []
+
+
 def adapt_recipe_to_inventory(recipe: dict, inventory_items: list) -> dict:
     """
     Adapt a curated recipe to use available inventory items.

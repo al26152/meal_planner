@@ -9,11 +9,27 @@ echo ========================================
 echo     MEAL PLANNER SERVER
 echo ========================================
 echo.
-echo Activating virtual environment...
+echo Current directory: %cd%
 echo.
-
-REM Activate virtual environment and run app
+echo Activating virtual environment...
 call venv\Scripts\activate.bat
+
+if errorlevel 1 (
+    echo ERROR: Failed to activate virtual environment
+    pause
+    exit /b 1
+)
+
+echo Virtual environment activated successfully!
+echo.
+echo Installing dependencies...
+pip install -r requirements.txt
+
+if errorlevel 1 (
+    echo ERROR: Failed to install dependencies
+    pause
+    exit /b 1
+)
 
 echo.
 echo ========================================

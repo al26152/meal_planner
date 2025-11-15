@@ -105,6 +105,74 @@ function handleFileSelect(file) {
 uploadBtn.addEventListener('click', uploadFile);
 cancelBtn.addEventListener('click', cancelUpload);
 
+// ===== Quick Add Ingredient =====
+
+const quickAddBtn = document.getElementById('quickAddBtn');
+const quickAddInput = document.getElementById('quickAddInput');
+const quickAddStatus = document.getElementById('quickAddStatus');
+
+quickAddBtn.addEventListener('click', addIngredientManually);
+quickAddInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+        addIngredientManually();
+    }
+});
+
+async function addIngredientManually() {
+    const text = quickAddInput.value.trim();
+
+    if (!text) {
+        showQuickAddStatus('Please enter an ingredient', 'error');
+        return;
+    }
+
+    // Show loading state
+    quickAddBtn.disabled = true;
+    quickAddBtn.textContent = 'Adding...';
+
+    try {
+        const response = await fetch('/api/inventory/add', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ text: text })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            // Clear input
+            quickAddInput.value = '';
+            // Reload inventory
+            loadInventory();
+            // Show success message
+            const itemCount = data.items.length;
+            showQuickAddStatus(`✓ Added ${itemCount} item(s) to inventory!`, 'success');
+        } else {
+            showQuickAddStatus(`✗ ${data.error || 'Error adding ingredient'}`, 'error');
+        }
+    } catch (error) {
+        console.error('Error adding ingredient:', error);
+        showQuickAddStatus('✗ Error adding ingredient. Please try again.', 'error');
+    } finally {
+        quickAddBtn.disabled = false;
+        quickAddBtn.textContent = 'Add to Inventory';
+    }
+}
+
+function showQuickAddStatus(message, type) {
+    quickAddStatus.textContent = message;
+    quickAddStatus.className = `status-message ${type}`;
+    quickAddStatus.style.display = 'block';
+
+    if (type === 'success') {
+        setTimeout(() => {
+            quickAddStatus.style.display = 'none';
+        }, 4000);
+    }
+}
+
 async function uploadFile() {
     if (!selectedFile || isUploading) return;
 

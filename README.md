@@ -12,6 +12,7 @@ A local web application that processes voice transcriptions and PDF receipts to 
 - **Unified Recipe Finder:** "What Can I Cook?" feature finds recipes from saved recipes + API, sorted by how many ingredients you already have
 - **Shopping List:** Quick add missing ingredients to a shopping list with checkbox tracking
 - **User Recipe Curation:** Import recipes from URLs/YouTube, save favorites, tag them, and build your personal recipe library
+- **Meal Planning:** Plan Monday-Friday dinners by selecting recipes, then export ingredients as CSV for Saint Chris shopping
 - **Button Feedback:** Visual feedback on all button interactions (color change + scale effect) for clear user feedback
 - **Local Storage:** All data stored locally in JSON (no cloud sync)
 - **WiFi Accessible:** Access from any device on same network at `http://[computer-ip]:5000`
@@ -311,6 +312,88 @@ Regenerate just one meal in a plan.
 POST /api/meal-plans/{plan_id}/shopping-list
 ```
 Create a shopping list of missing ingredients for a meal plan.
+
+### Weekly Meal Planning (Mon-Fri Dinners)
+
+#### Create Meal Plan
+```
+POST /api/planning
+```
+Create a meal plan by selecting recipes for Monday-Friday dinners.
+
+**Request:**
+```json
+{
+  "recipes": {
+    "monday": { "id": "recipe-id-1", "name": "Chicken Stir Fry", "ingredients": [...] },
+    "tuesday": { "id": "recipe-id-2", "name": "Pasta Carbonara", "ingredients": [...] },
+    "wednesday": { "id": "recipe-id-3", "name": "Tacos", "ingredients": [...] },
+    "thursday": { "id": "recipe-id-4", "name": "Grilled Salmon", "ingredients": [...] },
+    "friday": { "id": "recipe-id-5", "name": "Pizza Night", "ingredients": [...] }
+  }
+}
+```
+
+#### Get Current Plan
+```
+GET /api/planning
+```
+Get the most recent meal plan.
+
+#### Delete Plan
+```
+DELETE /api/planning/{plan_id}
+```
+
+#### Generate Shopping List CSV
+```
+POST /api/planning/shopping-list
+```
+Generate aggregated shopping list from selected recipes. Returns ingredients without volumes, ready for Saint Chris.
+
+**Request:**
+```json
+{
+  "exclude_inventory": true
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "aggregated_ingredients": {
+    "chicken": { "quantity": 2, "unit": "lbs" },
+    "tomatoes": { "quantity": 6, "unit": "pieces" }
+  },
+  "ingredient_names": ["chicken", "tomatoes", "garlic", "onion"],
+  "csv_string": "chicken, tomatoes, garlic, onion",
+  "total_items": 4
+}
+```
+
+#### Export as CSV String
+```
+POST /api/planning/csv
+```
+Get meal plan as comma-separated CSV string optimized for pasting into Saint Chris.
+
+**Response:**
+```json
+{
+  "success": true,
+  "csv_string": "chicken, tomatoes, basil, milk, rice, onion, garlic, olive oil, pasta"
+}
+```
+
+**Features:**
+- Select from saved recipes only (no API recipes in planning)
+- Aggregate ingredients from all 5 recipes
+- Automatic duplicate detection (if same ingredient appears multiple times)
+- Optional inventory deduction (exclude items you already have)
+- Simple comma-separated format perfect for Saint Chris
+- Copy to clipboard functionality
+- Download CSV file option
 
 ### Recipe Finding (Unified)
 
@@ -727,6 +810,46 @@ When moving to production:
 - Added quick add endpoint documentation
 - Updated .gitignore to prevent accidental "nul" file creation
 - Comprehensive feature list reflects current capabilities
+
+### November 15, 2025 - Weekly Meal Planning (Mon-Fri)
+**New Feature:**
+- **Meal Planning Tab:** New dedicated section for planning Monday-Friday dinners
+  - Select recipes from your saved recipe library
+  - Support for recipe reuse (same recipe multiple days)
+  - Recipe modal selector with full recipe details
+
+**Shopping List Integration:**
+- Generate aggregated ingredient list from all 5 selected recipes
+- Automatic ingredient deduplication (combines quantities)
+- CSV export in simple comma-separated format (no volumes)
+- Perfect format for pasting into Saint Chris shopping feature
+- Optional: Exclude items already in your inventory
+
+**Implementation:**
+- Backend: `planning_manager.py` with ingredient aggregation logic
+- API Endpoints:
+  - `POST /api/planning` - Create meal plan
+  - `GET /api/planning` - Get current plan
+  - `DELETE /api/planning/{plan_id}` - Delete plan
+  - `POST /api/planning/shopping-list` - Generate shopping list
+  - `POST /api/planning/csv` - Export as CSV string
+
+**Frontend Features:**
+- 5-day grid layout (Monday-Friday)
+- Recipe selection buttons with modal selector
+- Display selected recipe with ingredient count
+- "Generate Shopping List" button
+- CSV preview with "Copy to Clipboard" and "Download" options
+- Responsive design for mobile and desktop
+- Clear/reset plan functionality
+
+**User Workflow:**
+1. Go to Planning tab
+2. Click "Select Recipe" for each day
+3. Choose recipe from modal (saved recipes only)
+4. Click "Generate Shopping List" when all 5 days selected
+5. Copy CSV or download file
+6. Paste into Saint Chris shopping feature
 
 ### November 13, 2025 - Unified Recipe Finder Refactor
 **What Changed:**

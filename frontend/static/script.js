@@ -1397,14 +1397,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Generate meal plan text export
     document.getElementById('exportMealPlanBtn').addEventListener('click', () => {
-        // Check if all days have meals selected
-        if (Object.keys(currentPlan).length !== 5) {
-            alert(`Please select meals for all 5 days. Selected: ${Object.keys(currentPlan).length}/5`);
+        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+        let mealsToExport = {};
+        let mealCount = 0;
+
+        // Check each day for either selected recipe or custom meal input
+        days.forEach(day => {
+            // First check if meal is already in currentPlan
+            if (currentPlan[day]) {
+                mealsToExport[day] = currentPlan[day];
+                mealCount++;
+            } else {
+                // Check if there's a custom meal input with text
+                const customInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}`);
+                if (customInput && customInput.value.trim()) {
+                    const mealName = customInput.value.trim();
+                    mealsToExport[day] = { name: mealName, isCustom: true };
+                    // Also update currentPlan so it's consistent
+                    currentPlan[day] = mealsToExport[day];
+                    mealCount++;
+                }
+            }
+        });
+
+        // Check if at least some meals are selected
+        if (mealCount === 0) {
+            alert('Please select or enter meals for at least one day');
             return;
         }
 
         // Generate meal plan text
-        const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         const today = new Date();
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay() + 1); // Get Monday of this week
@@ -1414,7 +1436,7 @@ document.addEventListener('DOMContentLoaded', () => {
         mealPlanText += '═══════════════════════════════════════\n\n';
 
         days.forEach(day => {
-            const meal = currentPlan[day];
+            const meal = mealsToExport[day];
             const dayIndex = days.indexOf(day);
             const dayDate = new Date(weekStart);
             dayDate.setDate(weekStart.getDate() + dayIndex);
@@ -1427,7 +1449,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (meal) {
                 mealPlanText += `Dinner: ${meal.name}\n`;
             } else {
-                mealPlanText += 'Dinner: Not selected\n';
+                mealPlanText += 'Dinner: (not planned)\n';
             }
 
             mealPlanText += '\n';
@@ -1435,6 +1457,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         mealPlanText += '═══════════════════════════════════════\n';
         mealPlanText += `Generated: ${new Date().toLocaleString()}\n`;
+        mealPlanText += `Meals planned: ${mealCount}/5 days\n`;
         mealPlanText += '═══════════════════════════════════════\n';
 
         // Display meal plan

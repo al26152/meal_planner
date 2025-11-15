@@ -1,5 +1,6 @@
 import os
 from backend.openai_client import extract_inventory_items
+from backend.receipt_handler import filter_non_food_items
 from config import UPLOAD_FOLDER
 
 
@@ -25,7 +26,10 @@ def process_transcription_file(file_path: str) -> list:
         # Extract items using OpenAI
         items = extract_inventory_items(transcription_text)
 
-        return items
+        # Filter out non-food items
+        food_items = filter_non_food_items(items)
+
+        return food_items
 
     except UnicodeDecodeError:
         # Try with different encoding
@@ -33,7 +37,9 @@ def process_transcription_file(file_path: str) -> list:
             with open(file_path, 'r', encoding='latin-1') as f:
                 transcription_text = f.read().strip()
             items = extract_inventory_items(transcription_text)
-            return items
+            # Filter out non-food items
+            food_items = filter_non_food_items(items)
+            return food_items
         except Exception as e:
             print(f"Error processing transcription file: {e}")
             return []

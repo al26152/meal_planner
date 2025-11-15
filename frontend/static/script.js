@@ -1138,6 +1138,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Setup custom meal text inputs
+    planningDays.forEach(day => {
+        const customInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}`);
+        if (customInput) {
+            customInput.addEventListener('blur', () => {
+                const mealName = customInput.value.trim();
+                if (mealName) {
+                    // Store custom meal in plan (with a flag to distinguish from recipes)
+                    currentPlan[day] = { name: mealName, isCustom: true };
+
+                    // Update UI
+                    const recipeDiv = document.getElementById(`${day}Recipe`);
+                    recipeDiv.innerHTML = `
+                        <div class="recipe-card">
+                            <strong>${escapeHTML(mealName)}</strong>
+                            <p style="font-size: 0.9rem; color: var(--text-light); margin: 5px 0;">
+                                Custom meal (no ingredients tracked)
+                            </p>
+                            <button class="btn btn-small btn-secondary" onclick="removeRecipeForDay('${day}')" style="font-size: 0.85rem; padding: 5px 10px;">Remove</button>
+                        </div>
+                    `;
+                }
+            });
+
+            customInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    const mealName = customInput.value.trim();
+                    if (mealName) {
+                        // Store custom meal in plan
+                        currentPlan[day] = { name: mealName, isCustom: true };
+
+                        // Update UI
+                        const recipeDiv = document.getElementById(`${day}Recipe`);
+                        recipeDiv.innerHTML = `
+                            <div class="recipe-card">
+                                <strong>${escapeHTML(mealName)}</strong>
+                                <p style="font-size: 0.9rem; color: var(--text-light); margin: 5px 0;">
+                                    Custom meal (no ingredients tracked)
+                                </p>
+                                <button class="btn btn-small btn-secondary" onclick="removeRecipeForDay('${day}')" style="font-size: 0.85rem; padding: 5px 10px;">Remove</button>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        }
+    });
+
     // Show modal to select recipe
     function showRecipeSelector(recipes, day) {
         if (recipes.length === 0) {
@@ -1207,13 +1255,19 @@ document.addEventListener('DOMContentLoaded', () => {
         delete currentPlan[day];
         const recipeDiv = document.getElementById(`${day}Recipe`);
         recipeDiv.innerHTML = '<p class="empty">No recipe selected</p>';
+
+        // Clear custom input field if it exists
+        const customInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}`);
+        if (customInput) {
+            customInput.value = '';
+        }
     };
 
     // Generate shopping list from current plan
     document.getElementById('generateShoppingBtn').addEventListener('click', async () => {
-        // Check if all days have recipes selected
+        // Check if all days have meals selected (either recipes or custom)
         if (Object.keys(currentPlan).length !== 5) {
-            alert(`Please select recipes for all 5 days. Selected: ${Object.keys(currentPlan).length}/5`);
+            alert(`Please select meals for all 5 days. Selected: ${Object.keys(currentPlan).length}/5`);
             return;
         }
 

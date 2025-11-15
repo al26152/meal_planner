@@ -1440,6 +1440,22 @@ body.dark-mode .shopping-category li {
     font-size: 1.2rem;
 }
 
+.custom-meal-input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+.custom-meal-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
 .selected-recipe {
     margin-top: 15px;
     padding: 15px;

@@ -1110,6 +1110,180 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ===== Meal Planning (Monday-Friday) =====
+
+    const planningDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
+    let currentPlan = {};
+
+    // Load saved recipes for selection
+    async function loadRecipesForPlanning() {
+        try {
+            const response = await fetch('/api/user-recipes');
+            const data = await response.json();
+            return data.recipes || [];
+        } catch (error) {
+            console.error('Error loading recipes for planning:', error);
+            return [];
+        }
+    }
+
+    // Setup recipe selection buttons
+    planningDays.forEach(day => {
+        const button = document.getElementById(`select${day.charAt(0).toUpperCase() + day.slice(1)}`);
+        if (button) {
+            button.addEventListener('click', async () => {
+                const recipes = await loadRecipesForPlanning();
+                showRecipeSelector(recipes, day);
+            });
+        }
+    });
+
+    // Show modal to select recipe
+    function showRecipeSelector(recipes, day) {
+        if (recipes.length === 0) {
+            alert('No saved recipes found. Import or create recipes first!');
+            return;
+        }
+
+        let options = recipes.map(r => `<option value="${r.id}" data-recipe='${JSON.stringify(r)}'>${r.name}</option>`).join('');
+
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'flex';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Select Recipe for ${day.charAt(0).toUpperCase() + day.slice(1)}</h2>
+                    <button class="modal-close" onclick="this.closest('.modal').remove()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <select id="recipeSelect" class="form-control" style="width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 1rem;">
+                        <option value="">-- Choose a recipe --</option>
+                        ${options}
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="selectRecipeForDay('${day}', document.getElementById('recipeSelect'))">Select</button>
+                    <button class="btn btn-secondary" onclick="this.closest('.modal').remove()">Cancel</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) modal.remove();
+        });
+    }
+
+    // Global function to select recipe for a day
+    window.selectRecipeForDay = function(day, selectElement) {
+        const option = selectElement.options[selectElement.selectedIndex];
+        if (!option.value) {
+            alert('Please select a recipe');
+            return;
+        }
+
+        const recipe = JSON.parse(option.getAttribute('data-recipe'));
+        currentPlan[day] = recipe;
+
+        // Update UI
+        const recipeDiv = document.getElementById(`${day}Recipe`);
+        recipeDiv.innerHTML = `
+            <div class="recipe-card">
+                <strong>${recipe.name}</strong>
+                <p style="font-size: 0.9rem; color: var(--text-light); margin: 5px 0;">
+                    ${recipe.ingredients ? recipe.ingredients.length : 0} ingredients
+                </p>
+                <button class="btn btn-small btn-secondary" onclick="removeRecipeForDay('${day}')" style="font-size: 0.85rem; padding: 5px 10px;">Remove</button>
+            </div>
+        `;
+
+        // Close modal
+        document.querySelector('.modal').remove();
+    };
+
+    // Remove recipe for a day
+    window.removeRecipeForDay = function(day) {
+        delete currentPlan[day];
+        const recipeDiv = document.getElementById(`${day}Recipe`);
+        recipeDiv.innerHTML = '<p class="empty">No recipe selected</p>';
+    };
+
+    // Generate shopping list from current plan
+    document.getElementById('generateShoppingBtn').addEventListener('click', async () => {
+        // Check if all days have recipes selected
+        if (Object.keys(currentPlan).length !== 5) {
+            alert(`Please select recipes for all 5 days. Selected: ${Object.keys(currentPlan).length}/5`);
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/planning/csv', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipes: currentPlan,
+                    exclude_inventory: true
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok) {
+                // Display CSV
+                document.getElementById('csvText').value = data.csv_string;
+                document.getElementById('shoppingPreview').style.display = 'block';
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (error) {
+            console.error('Error generating shopping list:', error);
+            alert('Error generating shopping list');
+        }
+    });
+
+    // Copy to clipboard
+    document.getElementById('copyToClipboardBtn').addEventListener('click', () => {
+        const text = document.getElementById('csvText');
+        text.select();
+        document.execCommand('copy');
+
+        const status = document.getElementById('copyStatus');
+        status.textContent = '✓ Copied to clipboard!';
+        status.className = 'status-message success';
+        status.style.display = 'block';
+
+        setTimeout(() => {
+            status.style.display = 'none';
+        }, 3000);
+    });
+
+    // Download CSV
+    document.getElementById('downloadCsvBtn').addEventListener('click', () => {
+        const csv = document.getElementById('csvText').value;
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `shopping-list-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+    });
+
+    // Clear plan
+    document.getElementById('clearPlanBtn').addEventListener('click', () => {
+        if (confirm('Clear the entire meal plan?')) {
+            currentPlan = {};
+            planningDays.forEach(day => {
+                const recipeDiv = document.getElementById(`${day}Recipe`);
+                recipeDiv.innerHTML = '<p class="empty">No recipe selected</p>';
+            });
+            document.getElementById('shoppingPreview').style.display = 'none';
+        }
+    });
+
     // Refresh inventory every 30 seconds
     setInterval(loadInventory, 30000);
     // Refresh shopping list every 20 seconds

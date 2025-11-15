@@ -11,6 +11,7 @@ from backend.openai_client import adapt_recipe_to_inventory, parse_manual_ingred
 from backend.shopping_list_generator import generate_shopping_list
 from backend.user_recipe_manager import UserRecipeManager
 from backend.recipe_importer import import_recipe_from_url, import_recipe_from_youtube, extract_recipe_from_text
+from backend.planning_manager import PlanningManager
 
 app = Flask(__name__, template_folder='frontend', static_folder='frontend/static', static_url_path='/static')
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
@@ -746,6 +747,141 @@ def import_recipe_endpoint():
 
     except Exception as e:
         return jsonify({'error': f'Error importing recipe: {str(e)}'}), 500
+
+# ===== Meal Planning (Monday-Friday Dinners) =====
+
+@app.route('/api/planning', methods=['POST'])
+def create_meal_plan_endpoint():
+    """Create a new meal plan for Monday-Friday dinners."""
+    try:
+        data = request.json
+        recipes_dict = data.get('recipes', {})
+
+        # Validate we have all 5 days
+        required_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+        if not all(day in recipes_dict for day in required_days):
+            return jsonify({'error': 'Please select recipes for all 5 days (Monday-Friday)'}), 400
+
+        # Create the meal plan
+        plan = PlanningManager.create_meal_plan(recipes_dict)
+
+        return jsonify({
+            'success': True,
+            'message': 'Meal plan created successfully',
+            'plan_id': plan['id'],
+            'plan': plan
+        }), 201
+
+    except Exception as e:
+        return jsonify({'error': f'Error creating meal plan: {str(e)}'}), 500
+
+
+@app.route('/api/planning', methods=['GET'])
+def get_current_plan_endpoint():
+    """Get the current (most recent) meal plan."""
+    try:
+        plan = PlanningManager.get_current_plan()
+
+        if not plan:
+            return jsonify({
+                'success': True,
+                'message': 'No meal plan created yet',
+                'plan': None
+            }), 200
+
+        return jsonify({
+            'success': True,
+            'plan': plan
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error retrieving meal plan: {str(e)}'}), 500
+
+
+@app.route('/api/planning/<plan_id>', methods=['DELETE'])
+def delete_plan_endpoint(plan_id):
+    """Delete a meal plan."""
+    try:
+        PlanningManager.delete_plan(plan_id)
+
+        return jsonify({
+            'success': True,
+            'message': 'Meal plan deleted'
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error deleting plan: {str(e)}'}), 500
+
+
+@app.route('/api/planning/shopping-list', methods=['POST'])
+def generate_shopping_list_from_plan():
+    """Generate shopping list from a meal plan (for Saint Chris format)."""
+    try:
+        data = request.json
+        plan_id = data.get('plan_id')
+
+        # Get the plan
+        if plan_id:
+            plan = PlanningManager.get_plan_by_id(plan_id)
+        else:
+            plan = PlanningManager.get_current_plan()
+
+        if not plan:
+            return jsonify({'error': 'No meal plan found'}), 404
+
+        # Get current inventory (optional - to exclude items already owned)
+        exclude_inventory = None
+        if data.get('exclude_inventory', False):
+            inventory = InventoryManager.get_all_items()
+            exclude_inventory = [item['name'] for item in inventory]
+
+        # Generate shopping list
+        shopping_data = PlanningManager.generate_full_shopping_list(plan, exclude_inventory)
+
+        return jsonify({
+            'success': True,
+            'aggregated_ingredients': shopping_data['aggregated'],
+            'ingredient_names': shopping_data['ingredient_names'],
+            'csv_string': shopping_data['csv_string'],
+            'total_items': shopping_data['total_items']
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error generating shopping list: {str(e)}'}), 500
+
+
+@app.route('/api/planning/csv', methods=['POST'])
+def get_csv_export():
+    """Get meal plan as CSV string (comma-separated ingredients for Saint Chris)."""
+    try:
+        data = request.json
+        plan_id = data.get('plan_id')
+
+        # Get the plan
+        if plan_id:
+            plan = PlanningManager.get_plan_by_id(plan_id)
+        else:
+            plan = PlanningManager.get_current_plan()
+
+        if not plan:
+            return jsonify({'error': 'No meal plan found'}), 404
+
+        # Get current inventory (optional)
+        exclude_inventory = None
+        if data.get('exclude_inventory', False):
+            inventory = InventoryManager.get_all_items()
+            exclude_inventory = [item['name'] for item in inventory]
+
+        # Generate shopping list and get CSV
+        shopping_data = PlanningManager.generate_full_shopping_list(plan, exclude_inventory)
+
+        return jsonify({
+            'success': True,
+            'csv_string': shopping_data['csv_string']
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Error generating CSV: {str(e)}'}), 500
 
 
 # ===== Error Handlers =====

@@ -15,7 +15,8 @@
       "Bash(taskkill:*)",
       "Bash(dir:*)",
       "Bash(timeout:*)",
-      "Bash(nul)"
+      "Bash(nul)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []

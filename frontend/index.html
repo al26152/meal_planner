@@ -33,6 +33,10 @@
                     <span class="tab-icon">🛒</span>
                     Shopping List
                 </button>
+                <button class="tab-btn" data-tab="planning-tab">
+                    <span class="tab-icon">📅</span>
+                    Planning
+                </button>
             </div>
         </nav>
 
@@ -110,6 +114,80 @@
 
                     <div id="shoppingListContainer" class="shopping-list-container">
                         <p class="empty-state">No items in shopping list. Add missing ingredients from your recipes!</p>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Planning Tab -->
+            <div id="planning-tab" class="tab-content">
+                <section class="card planning-section">
+                    <h2>Weekly Meal Planning (Mon-Fri Dinners)</h2>
+                    <p class="description">Select dinner recipes for each day, then export as a list for shopping</p>
+
+                    <!-- Days Grid -->
+                    <div class="planning-grid">
+                        <div class="planning-day">
+                            <h3>Monday</h3>
+                            <button id="selectMonday" class="btn btn-primary btn-small">Select Recipe</button>
+                            <div id="mondayRecipe" class="selected-recipe">
+                                <p class="empty">No recipe selected</p>
+                            </div>
+                        </div>
+
+                        <div class="planning-day">
+                            <h3>Tuesday</h3>
+                            <button id="selectTuesday" class="btn btn-primary btn-small">Select Recipe</button>
+                            <div id="tuesdayRecipe" class="selected-recipe">
+                                <p class="empty">No recipe selected</p>
+                            </div>
+                        </div>
+
+                        <div class="planning-day">
+                            <h3>Wednesday</h3>
+                            <button id="selectWednesday" class="btn btn-primary btn-small">Select Recipe</button>
+                            <div id="wednesdayRecipe" class="selected-recipe">
+                                <p class="empty">No recipe selected</p>
+                            </div>
+                        </div>
+
+                        <div class="planning-day">
+                            <h3>Thursday</h3>
+                            <button id="selectThursday" class="btn btn-primary btn-small">Select Recipe</button>
+                            <div id="thursdayRecipe" class="selected-recipe">
+                                <p class="empty">No recipe selected</p>
+                            </div>
+                        </div>
+
+                        <div class="planning-day">
+                            <h3>Friday</h3>
+                            <button id="selectFriday" class="btn btn-primary btn-small">Select Recipe</button>
+                            <div id="fridayRecipe" class="selected-recipe">
+                                <p class="empty">No recipe selected</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Generate Shopping List -->
+                    <div class="planning-actions" style="margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                        <button id="generateShoppingBtn" class="btn btn-primary" style="margin-right: 10px;">Generate Shopping List</button>
+                        <button id="clearPlanBtn" class="btn btn-secondary">Clear Plan</button>
+                    </div>
+
+                    <!-- Shopping List Preview -->
+                    <div id="shoppingPreview" class="shopping-preview" style="display: none; margin-top: 30px;">
+                        <h3>Shopping List for Saint Chris</h3>
+                        <p class="description">Copy the list below and paste into Saint Chris</p>
+
+                        <div class="csv-output">
+                            <textarea id="csvText" class="csv-textarea" readonly></textarea>
+                        </div>
+
+                        <div class="csv-actions">
+                            <button id="copyToClipboardBtn" class="btn btn-primary">📋 Copy to Clipboard</button>
+                            <button id="downloadCsvBtn" class="btn btn-secondary">⬇️ Download CSV</button>
+                        </div>
+
+                        <div id="copyStatus" class="status-message"></div>
                     </div>
                 </section>
             </div>

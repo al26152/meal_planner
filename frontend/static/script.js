@@ -1062,6 +1062,75 @@ async function removeShoppingItem(itemId) {
     }
 }
 
+// Store current shopping list items for CSV export
+let currentShoppingListItems = [];
+
+// Override displayShoppingList to also store items
+const originalDisplayShoppingList = displayShoppingList;
+displayShoppingList = function(items) {
+    currentShoppingListItems = items || [];
+    originalDisplayShoppingList(items);
+};
+
+// Shopping list CSV export (only available when DOM is ready)
+document.addEventListener('DOMContentLoaded', () => {
+    // Export shopping list as CSV
+    const exportBtn = document.getElementById('exportShoppingListBtn');
+    if (exportBtn) {
+        exportBtn.addEventListener('click', () => {
+            if (!currentShoppingListItems || currentShoppingListItems.length === 0) {
+                alert('No items in shopping list to export');
+                return;
+            }
+
+            // Generate CSV string (comma-separated item names)
+            const csvItems = currentShoppingListItems
+                .map(item => item.name)
+                .join(', ');
+
+            // Display CSV
+            document.getElementById('shoppingListCsvText').value = csvItems;
+            document.getElementById('shoppingListCsvPreview').style.display = 'block';
+        });
+    }
+
+    // Copy shopping list CSV to clipboard
+    const copyBtn = document.getElementById('copyShoppingListToClipboardBtn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const text = document.getElementById('shoppingListCsvText');
+            text.select();
+            document.execCommand('copy');
+
+            const status = document.getElementById('shoppingListCopyStatus');
+            status.textContent = '✓ Copied to clipboard!';
+            status.className = 'status-message success';
+            status.style.display = 'block';
+
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        });
+    }
+
+    // Download shopping list CSV
+    const downloadBtn = document.getElementById('downloadShoppingListCsvBtn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            const csv = document.getElementById('shoppingListCsvText').value;
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `shopping-list-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        });
+    }
+});
+
 // ===== Initialize =====
 
 // Load dark mode and inventory on page load

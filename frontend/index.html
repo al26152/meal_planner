@@ -108,12 +108,30 @@
                     <div class="section-header">
                         <h2>Shopping List</h2>
                         <div class="controls">
+                            <button id="exportShoppingListBtn" class="btn btn-primary-small" title="Export as CSV">📋 Export CSV</button>
                             <button id="clearShoppingBtn" class="btn btn-danger-small" title="Clear all items">Clear All</button>
                         </div>
                     </div>
 
                     <div id="shoppingListContainer" class="shopping-list-container">
                         <p class="empty-state">No items in shopping list. Add missing ingredients from your recipes!</p>
+                    </div>
+
+                    <!-- CSV Export Preview -->
+                    <div id="shoppingListCsvPreview" class="shopping-preview" style="display: none; margin-top: 30px;">
+                        <h3>Shopping List CSV</h3>
+                        <p class="description">Copy the list below and paste into Saint Chris</p>
+
+                        <div class="csv-output">
+                            <textarea id="shoppingListCsvText" class="csv-textarea" readonly></textarea>
+                        </div>
+
+                        <div class="csv-actions">
+                            <button id="copyShoppingListToClipboardBtn" class="btn btn-primary">📋 Copy to Clipboard</button>
+                            <button id="downloadShoppingListCsvBtn" class="btn btn-secondary">⬇️ Download CSV</button>
+                        </div>
+
+                        <div id="shoppingListCopyStatus" class="status-message"></div>
                     </div>
                 </section>
             </div>

@@ -6,11 +6,13 @@
 A local web application that processes voice transcriptions and PDF receipts to build a food inventory, then suggests recipes based on available ingredients. Designed to reduce food waste and encourage creative cooking.
 
 **Key Features:**
-- **Inventory Management:** Upload voice transcriptions (.txt) from Google Recorder or PDF receipts to build food inventory
+- **Inventory Management:** Upload voice transcriptions (.txt) from Google Recorder or PDF receipts, OR manually add ingredients with natural language parsing
+- **Quick Add Ingredient:** Type ingredients naturally (e.g., "2 lbs chicken, 3 tomatoes") and AI parses them automatically into your inventory
 - **Automatic Extraction:** OpenAI GPT-4o-mini intelligently extracts food items from transcriptions and receipts
 - **Unified Recipe Finder:** "What Can I Cook?" feature finds recipes from saved recipes + API, sorted by how many ingredients you already have
 - **Shopping List:** Quick add missing ingredients to a shopping list with checkbox tracking
 - **User Recipe Curation:** Import recipes from URLs/YouTube, save favorites, tag them, and build your personal recipe library
+- **Button Feedback:** Visual feedback on all button interactions (color change + scale effect) for clear user feedback
 - **Local Storage:** All data stored locally in JSON (no cloud sync)
 - **WiFi Accessible:** Access from any device on same network at `http://[computer-ip]:5000`
 - **Mobile Responsive:** Works great on phones, tablets, and desktops
@@ -204,6 +206,66 @@ Update an item's details (quantity, notes, etc.).
 DELETE /api/inventory
 ```
 Remove all items from inventory.
+
+#### Quick Add Ingredient (Manual)
+```
+POST /api/inventory/add
+```
+Manually add ingredients with natural language parsing. OpenAI automatically parses free-text input into structured items.
+
+**Request:**
+```json
+{
+  "text": "2 lbs chicken, 3 tomatoes, 1 gallon milk"
+}
+```
+
+**Response (Success):**
+```json
+{
+  "success": true,
+  "message": "Added 3 item(s) to inventory",
+  "items": [
+    {
+      "id": "uuid-string",
+      "name": "chicken",
+      "quantity": 2,
+      "unit": "lbs",
+      "category": "meat",
+      "added_date": "2025-11-15T14:30:00",
+      "source": "manual",
+      "notes": ""
+    },
+    {
+      "id": "uuid-string",
+      "name": "tomatoes",
+      "quantity": 3,
+      "unit": "pieces",
+      "category": "produce",
+      "added_date": "2025-11-15T14:30:00",
+      "source": "manual",
+      "notes": ""
+    },
+    {
+      "id": "uuid-string",
+      "name": "milk",
+      "quantity": 1,
+      "unit": "gallon",
+      "category": "dairy",
+      "added_date": "2025-11-15T14:30:00",
+      "source": "manual",
+      "notes": ""
+    }
+  ]
+}
+```
+
+**Features:**
+- Accepts natural language input (e.g., "2 lbs chicken", "3 tomatoes")
+- Automatically detects quantity, unit, and category
+- Parses multiple items separated by commas
+- Returns parsed items added to inventory
+- Source is automatically set to "manual"
 
 ### Meal Plans
 
@@ -636,9 +698,35 @@ When moving to production:
 
 ## Recent Changes & Fixes
 
-### November 15, 2025
-- Updated README to reflect current implementation status
-- All major phases now documented and completed
+### November 15, 2025 - Quick Add Ingredient & Button Feedback
+**New Features:**
+- **Quick Add Ingredient:** Manually add ingredients with natural language parsing
+  - New endpoint: `POST /api/inventory/add`
+  - Accepts free-text input (e.g., "2 lbs chicken, 3 tomatoes, 1 gallon milk")
+  - OpenAI GPT-4o-mini automatically parses quantity, unit, and category
+  - Handles multiple items separated by commas
+  - Items added with "manual" source for tracking
+
+- **Button Click Feedback:** Visual feedback on all button interactions
+  - Added `:active` pseudo-classes to all button types
+  - Color change on click (darker shade) + 98% scale effect
+  - Smooth transitions for professional feel
+  - Applied to: primary, secondary, danger, and small buttons
+  - Provides immediate user feedback that button was pressed
+
+**Frontend Enhancements:**
+- New "Quick Add Ingredient" form in Inventory tab
+- Text input with helpful placeholder examples
+- Loading state shows "Adding..." during processing
+- Enter key support for quick submission
+- Error handling with user-friendly messages
+- Success messages with item count
+
+**Documentation Updates:**
+- Updated README with new features and API endpoints
+- Added quick add endpoint documentation
+- Updated .gitignore to prevent accidental "nul" file creation
+- Comprehensive feature list reflects current capabilities
 
 ### November 13, 2025 - Unified Recipe Finder Refactor
 **What Changed:**
@@ -710,7 +798,15 @@ When moving to production:
 - [x] Prevent hanging requests
 - [x] Recipe prioritization logic
 
-### Phase 6: Polish & Enhancement (In Progress)
+### Phase 6: Inventory & UX Enhancements ✅ COMPLETE (Nov 15)
+- [x] Quick add ingredient with natural language parsing
+- [x] OpenAI integration for ingredient parsing
+- [x] Button click visual feedback (color change + scale)
+- [x] Loading state indicators on button interactions
+- [x] Enter key support for form submission
+- [x] Error handling and user-friendly messages
+
+### Phase 7: Polish & Enhancement (In Progress)
 - [ ] OCR for receipt scanning
 - [ ] Recipe rating/feedback system
 - [ ] Cooking history tracking

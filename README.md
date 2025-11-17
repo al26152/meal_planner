@@ -12,7 +12,7 @@ A local web application that processes voice transcriptions and PDF receipts to 
 - **Unified Recipe Finder:** "What Can I Cook?" feature finds recipes from saved recipes + API, sorted by how many ingredients you already have
 - **Shopping List:** Quick add missing ingredients to a shopping list with checkbox tracking
 - **User Recipe Curation:** Import recipes from URLs/YouTube, save favorites, tag them, and build your personal recipe library
-- **Meal Planning:** Plan Monday-Friday dinners by selecting recipes, then export ingredients as CSV for Saint Chris shopping
+- **Meal Planning:** Plan Monday-Friday dinners by selecting recipes, then export and edit your shopping list
 - **Button Feedback:** Visual feedback on all button interactions (color change + scale effect) for clear user feedback
 - **Local Storage:** All data stored locally in JSON (no cloud sync)
 - **WiFi Accessible:** Access from any device on same network at `http://[computer-ip]:5000`
@@ -391,7 +391,7 @@ Get meal plan as comma-separated CSV string optimized for pasting into Saint Chr
 - Aggregate ingredients from all 5 recipes
 - Automatic duplicate detection (if same ingredient appears multiple times)
 - Optional inventory deduction (exclude items you already have)
-- Simple comma-separated format perfect for Saint Chris
+- Editable shopping list - modify items before exporting
 - Copy to clipboard functionality
 - Download CSV file option
 

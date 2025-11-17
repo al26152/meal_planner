@@ -119,11 +119,11 @@
 
                     <!-- CSV Export Preview -->
                     <div id="shoppingListCsvPreview" class="shopping-preview" style="display: none; margin-top: 30px;">
-                        <h3>Shopping List CSV</h3>
-                        <p class="description">Copy the list below and paste into Saint Chris</p>
+                        <h3>Shopping List</h3>
+                        <p class="description">Edit the list below as needed, then copy or download</p>
 
                         <div class="csv-output">
-                            <textarea id="shoppingListCsvText" class="csv-textarea" readonly></textarea>
+                            <textarea id="shoppingListCsvText" class="csv-textarea"></textarea>
                         </div>
 
                         <div class="csv-actions">
@@ -149,6 +149,7 @@
                             <button id="selectMonday" class="btn btn-primary btn-small">Select Recipe</button>
                             <p style="text-align: center; color: var(--text-light); margin: 8px 0;">or</p>
                             <input type="text" id="customMonday" class="custom-meal-input" placeholder="Type custom meal">
+                            <input type="text" id="customMondayIngredients" class="custom-meal-input" placeholder="Ingredients (comma-separated)" style="display: none; margin-top: 8px;">
                             <div id="mondayRecipe" class="selected-recipe">
                                 <p class="empty">No recipe selected</p>
                             </div>
@@ -159,6 +160,7 @@
                             <button id="selectTuesday" class="btn btn-primary btn-small">Select Recipe</button>
                             <p style="text-align: center; color: var(--text-light); margin: 8px 0;">or</p>
                             <input type="text" id="customTuesday" class="custom-meal-input" placeholder="Type custom meal">
+                            <input type="text" id="customTuesdayIngredients" class="custom-meal-input" placeholder="Ingredients (comma-separated)" style="display: none; margin-top: 8px;">
                             <div id="tuesdayRecipe" class="selected-recipe">
                                 <p class="empty">No recipe selected</p>
                             </div>
@@ -169,6 +171,7 @@
                             <button id="selectWednesday" class="btn btn-primary btn-small">Select Recipe</button>
                             <p style="text-align: center; color: var(--text-light); margin: 8px 0;">or</p>
                             <input type="text" id="customWednesday" class="custom-meal-input" placeholder="Type custom meal">
+                            <input type="text" id="customWednesdayIngredients" class="custom-meal-input" placeholder="Ingredients (comma-separated)" style="display: none; margin-top: 8px;">
                             <div id="wednesdayRecipe" class="selected-recipe">
                                 <p class="empty">No recipe selected</p>
                             </div>
@@ -179,6 +182,7 @@
                             <button id="selectThursday" class="btn btn-primary btn-small">Select Recipe</button>
                             <p style="text-align: center; color: var(--text-light); margin: 8px 0;">or</p>
                             <input type="text" id="customThursday" class="custom-meal-input" placeholder="Type custom meal">
+                            <input type="text" id="customThursdayIngredients" class="custom-meal-input" placeholder="Ingredients (comma-separated)" style="display: none; margin-top: 8px;">
                             <div id="thursdayRecipe" class="selected-recipe">
                                 <p class="empty">No recipe selected</p>
                             </div>
@@ -189,6 +193,7 @@
                             <button id="selectFriday" class="btn btn-primary btn-small">Select Recipe</button>
                             <p style="text-align: center; color: var(--text-light); margin: 8px 0;">or</p>
                             <input type="text" id="customFriday" class="custom-meal-input" placeholder="Type custom meal">
+                            <input type="text" id="customFridayIngredients" class="custom-meal-input" placeholder="Ingredients (comma-separated)" style="display: none; margin-top: 8px;">
                             <div id="fridayRecipe" class="selected-recipe">
                                 <p class="empty">No recipe selected</p>
                             </div>
@@ -204,11 +209,11 @@
 
                     <!-- Shopping List Preview -->
                     <div id="shoppingPreview" class="shopping-preview" style="display: none; margin-top: 30px;">
-                        <h3>Shopping List for Saint Chris</h3>
-                        <p class="description">Copy the list below and paste into Saint Chris</p>
+                        <h3>Shopping List</h3>
+                        <p class="description">Edit the list below as needed, then copy or download</p>
 
                         <div class="csv-output">
-                            <textarea id="csvText" class="csv-textarea" readonly></textarea>
+                            <textarea id="csvText" class="csv-textarea"></textarea>
                         </div>
 
                         <div class="csv-actions">

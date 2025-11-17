@@ -30,6 +30,10 @@ const recipeManager = {
             return;
         }
 
+        const parseBtn = document.getElementById('parseRecipeBtn');
+        const originalText = parseBtn.textContent;
+        parseBtn.disabled = true;
+
         try {
             this.showStatus('Parsing recipe...', 'loading');
 
@@ -57,6 +61,9 @@ const recipeManager = {
         } catch (error) {
             console.error('Error parsing recipe:', error);
             this.showStatus('Failed to parse recipe', 'error');
+        } finally {
+            parseBtn.disabled = false;
+            parseBtn.textContent = originalText;
         }
     },
 
@@ -250,10 +257,10 @@ const recipeManager = {
                     </p>
                 </div>
                 <div class="recipe-card-footer">
-                    <button class="btn btn-small" onclick="recipeManager.viewRecipe('${recipe.id}')">
+                    <button class="btn btn-small" onclick="recipeManager.viewRecipe('${recipe.id}')" id="check-${recipe.id}">
                         ✓ Check Ingredients
                     </button>
-                    <button class="btn btn-small btn-danger-small" onclick="recipeManager.deleteRecipe('${recipe.id}')">
+                    <button class="btn btn-small btn-danger-small" onclick="recipeManager.deleteRecipe('${recipe.id}')" id="delete-${recipe.id}">
                         Delete
                     </button>
                 </div>
@@ -263,7 +270,16 @@ const recipeManager = {
 
     // View recipe details and show adaptation
     viewRecipe: async function(recipeId) {
+        const button = document.getElementById(`check-${recipeId}`);
+        const originalText = button ? button.textContent : '';
+
         try {
+            // Show loading state on the button
+            if (button) {
+                button.textContent = '⏳ Loading...';
+                button.disabled = true;
+            }
+
             const response = await fetch(`/api/user-recipes/${recipeId}/adapt`);
             const data = await response.json();
 
@@ -368,6 +384,12 @@ const recipeManager = {
             document.getElementById('recipeDetailTitle').textContent = 'Error';
             document.getElementById('recipeDetailContent').innerHTML = `<p style="color: var(--danger-color);">Failed to load recipe: ${error.message}</p>`;
             modal.style.display = 'flex';
+        } finally {
+            // Restore button state
+            if (button) {
+                button.textContent = originalText;
+                button.disabled = false;
+            }
         }
     },
 
@@ -572,6 +594,10 @@ const recipeManager = {
             return;
         }
 
+        const importBtn = document.getElementById('importRecipeBtn');
+        const originalText = importBtn.textContent;
+        importBtn.disabled = true;
+
         try {
             this.showStatus('Importing recipe...', 'loading');
 
@@ -602,6 +628,9 @@ const recipeManager = {
         } catch (error) {
             console.error('Error importing recipe:', error);
             this.showStatus('Failed to import recipe', 'error');
+        } finally {
+            importBtn.disabled = false;
+            importBtn.textContent = originalText;
         }
     },
 

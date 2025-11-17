@@ -1210,20 +1210,42 @@ document.addEventListener('DOMContentLoaded', () => {
     // Setup custom meal text inputs
     planningDays.forEach(day => {
         const customInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}`);
+        const ingredientsInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}Ingredients`);
+
         if (customInput) {
+            // Show ingredients field when meal name is entered
+            customInput.addEventListener('input', () => {
+                if (customInput.value.trim()) {
+                    ingredientsInput.style.display = 'block';
+                } else {
+                    ingredientsInput.style.display = 'none';
+                }
+            });
+
             customInput.addEventListener('blur', () => {
                 const mealName = customInput.value.trim();
                 if (mealName) {
-                    // Store custom meal in plan (with a flag to distinguish from recipes)
-                    currentPlan[day] = { name: mealName, isCustom: true };
+                    // Get ingredients if provided
+                    const ingredientsText = ingredientsInput.value.trim();
+                    const ingredients = ingredientsText
+                        ? ingredientsText.split(',').map(ing => ({ name: ing.trim(), quantity: 1, unit: 'pieces' }))
+                        : [];
+
+                    // Store custom meal in plan
+                    currentPlan[day] = {
+                        name: mealName,
+                        isCustom: true,
+                        ingredients: ingredients
+                    };
 
                     // Update UI
                     const recipeDiv = document.getElementById(`${day}Recipe`);
+                    const ingredientCount = ingredients.length || 0;
                     recipeDiv.innerHTML = `
                         <div class="recipe-card">
                             <strong>${escapeHTML(mealName)}</strong>
                             <p style="font-size: 0.9rem; color: var(--text-light); margin: 5px 0;">
-                                Custom meal (no ingredients tracked)
+                                ${ingredientCount} ingredient${ingredientCount !== 1 ? 's' : ''} added
                             </p>
                             <button class="btn btn-small btn-secondary" onclick="removeRecipeForDay('${day}')" style="font-size: 0.85rem; padding: 5px 10px;">Remove</button>
                         </div>
@@ -1235,16 +1257,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (e.key === 'Enter') {
                     const mealName = customInput.value.trim();
                     if (mealName) {
+                        // Get ingredients if provided
+                        const ingredientsText = ingredientsInput.value.trim();
+                        const ingredients = ingredientsText
+                            ? ingredientsText.split(',').map(ing => ({ name: ing.trim(), quantity: 1, unit: 'pieces' }))
+                            : [];
+
                         // Store custom meal in plan
-                        currentPlan[day] = { name: mealName, isCustom: true };
+                        currentPlan[day] = {
+                            name: mealName,
+                            isCustom: true,
+                            ingredients: ingredients
+                        };
 
                         // Update UI
                         const recipeDiv = document.getElementById(`${day}Recipe`);
+                        const ingredientCount = ingredients.length || 0;
                         recipeDiv.innerHTML = `
                             <div class="recipe-card">
                                 <strong>${escapeHTML(mealName)}</strong>
                                 <p style="font-size: 0.9rem; color: var(--text-light); margin: 5px 0;">
-                                    Custom meal (no ingredients tracked)
+                                    ${ingredientCount} ingredient${ingredientCount !== 1 ? 's' : ''} added
                                 </p>
                                 <button class="btn btn-small btn-secondary" onclick="removeRecipeForDay('${day}')" style="font-size: 0.85rem; padding: 5px 10px;">Remove</button>
                             </div>
@@ -1252,6 +1285,37 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             });
+
+            // Also handle ingredients field on enter/blur
+            if (ingredientsInput) {
+                ingredientsInput.addEventListener('blur', () => {
+                    const mealName = customInput.value.trim();
+                    if (mealName) {
+                        const ingredientsText = ingredientsInput.value.trim();
+                        const ingredients = ingredientsText
+                            ? ingredientsText.split(',').map(ing => ({ name: ing.trim(), quantity: 1, unit: 'pieces' }))
+                            : [];
+
+                        currentPlan[day] = {
+                            name: mealName,
+                            isCustom: true,
+                            ingredients: ingredients
+                        };
+
+                        const recipeDiv = document.getElementById(`${day}Recipe`);
+                        const ingredientCount = ingredients.length || 0;
+                        recipeDiv.innerHTML = `
+                            <div class="recipe-card">
+                                <strong>${escapeHTML(mealName)}</strong>
+                                <p style="font-size: 0.9rem; color: var(--text-light); margin: 5px 0;">
+                                    ${ingredientCount} ingredient${ingredientCount !== 1 ? 's' : ''} added
+                                </p>
+                                <button class="btn btn-small btn-secondary" onclick="removeRecipeForDay('${day}')" style="font-size: 0.85rem; padding: 5px 10px;">Remove</button>
+                            </div>
+                        `;
+                    }
+                });
+            }
         }
     });
 
@@ -1327,18 +1391,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Clear custom input field if it exists
         const customInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}`);
+        const ingredientsInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}Ingredients`);
+
         if (customInput) {
             customInput.value = '';
+        }
+        if (ingredientsInput) {
+            ingredientsInput.value = '';
+            ingredientsInput.style.display = 'none';
         }
     };
 
     // Generate shopping list from current plan
     document.getElementById('generateShoppingBtn').addEventListener('click', async () => {
-        // Check if all days have meals selected (either recipes or custom)
-        if (Object.keys(currentPlan).length !== 5) {
-            alert(`Please select meals for all 5 days. Selected: ${Object.keys(currentPlan).length}/5`);
+        // Check if at least one day has a meal selected
+        if (Object.keys(currentPlan).length === 0) {
+            alert(`Please select at least one meal before generating a shopping list.`);
             return;
         }
+
+        const btn = document.getElementById('generateShoppingBtn');
+        const originalText = btn.textContent;
+        btn.textContent = '⏳ Generating...';
+        btn.disabled = true;
 
         try {
             const response = await fetch('/api/planning/csv', {
@@ -1362,6 +1437,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error generating shopping list:', error);
             alert('Error generating shopping list');
+        } finally {
+            btn.textContent = originalText;
+            btn.disabled = false;
         }
     });
 
@@ -1431,34 +1509,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const weekStart = new Date(today);
         weekStart.setDate(today.getDate() - today.getDay() + 1); // Get Monday of this week
 
-        let mealPlanText = '═══════════════════════════════════════\n';
-        mealPlanText += '      WEEKLY MEAL PLAN\n';
-        mealPlanText += '═══════════════════════════════════════\n\n';
+        let mealPlanText = 'WEEKLY MEAL PLAN\n';
+        mealPlanText += '================\n\n';
 
         days.forEach(day => {
             const meal = mealsToExport[day];
             const dayIndex = days.indexOf(day);
             const dayDate = new Date(weekStart);
             dayDate.setDate(weekStart.getDate() + dayIndex);
-            const dateStr = dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            const dateStr = dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 
             const dayName = day.charAt(0).toUpperCase() + day.slice(1);
-            mealPlanText += `${dayName} (${dateStr})\n`;
-            mealPlanText += '─────────────────────────────────────\n';
 
             if (meal) {
-                mealPlanText += `Dinner: ${meal.name}\n`;
+                mealPlanText += `${dayName} ${dateStr} - Dinner: ${meal.name}\n`;
             } else {
-                mealPlanText += 'Dinner: (not planned)\n';
+                mealPlanText += `${dayName} ${dateStr} - Dinner: (not planned)\n`;
             }
-
-            mealPlanText += '\n';
         });
 
-        mealPlanText += '═══════════════════════════════════════\n';
-        mealPlanText += `Generated: ${new Date().toLocaleString()}\n`;
+        mealPlanText += `\nGenerated: ${new Date().toLocaleString()}\n`;
         mealPlanText += `Meals planned: ${mealCount}/5 days\n`;
-        mealPlanText += '═══════════════════════════════════════\n';
 
         // Display meal plan
         document.getElementById('mealPlanText').value = mealPlanText;
@@ -1500,8 +1571,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirm('Clear the entire meal plan?')) {
             currentPlan = {};
             planningDays.forEach(day => {
+                // Clear recipe display
                 const recipeDiv = document.getElementById(`${day}Recipe`);
                 recipeDiv.innerHTML = '<p class="empty">No recipe selected</p>';
+
+                // Clear custom meal input
+                const customInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}`);
+                if (customInput) {
+                    customInput.value = '';
+                }
+
+                // Clear custom ingredients input
+                const ingredientsInput = document.getElementById(`custom${day.charAt(0).toUpperCase() + day.slice(1)}Ingredients`);
+                if (ingredientsInput) {
+                    ingredientsInput.value = '';
+                    ingredientsInput.style.display = 'none';
+                }
             });
             document.getElementById('shoppingPreview').style.display = 'none';
             document.getElementById('mealPlanExport').style.display = 'none';

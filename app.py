@@ -698,21 +698,13 @@ def import_recipe_endpoint():
             if not recipe:
                 return jsonify({'error': 'Failed to extract recipe from content. Please provide a clearer recipe.'}), 400
 
-            # Save to user recipes
-            saved_recipe = recipe_manager.add_recipe(
-                name=recipe.get('name', 'Imported Recipe'),
-                ingredients=recipe.get('ingredients', []),
-                instructions=recipe.get('instructions', ''),
-                source='text_import',
-                tags=data.get('tags', []),
-                notes=data.get('notes', '')
-            )
-
+            # Don't save yet - return the recipe for user to edit/confirm
+            # This is the same as URL imports that need manual entry
             return jsonify({
                 'success': True,
-                'message': 'Recipe created from content',
-                'recipe': saved_recipe
-            }), 201
+                'message': 'Recipe extracted - review before saving',
+                'recipe': recipe
+            }), 200
 
         # Option 3: Save partially extracted recipe with manual details
         elif 'save_partial' in data and data.get('save_partial'):
@@ -819,10 +811,17 @@ def generate_shopping_list_from_plan():
     try:
         data = request.json
         plan_id = data.get('plan_id')
+        recipes_dict = data.get('recipes')
 
         # Get the plan
         if plan_id:
             plan = PlanningManager.get_plan_by_id(plan_id)
+        elif recipes_dict:
+            # Create a temporary plan object from the recipes provided in the request
+            plan = {
+                'id': 'temp',
+                'recipes': recipes_dict
+            }
         else:
             plan = PlanningManager.get_current_plan()
 
@@ -856,10 +855,17 @@ def get_csv_export():
     try:
         data = request.json
         plan_id = data.get('plan_id')
+        recipes_dict = data.get('recipes')
 
         # Get the plan
         if plan_id:
             plan = PlanningManager.get_plan_by_id(plan_id)
+        elif recipes_dict:
+            # Create a temporary plan object from the recipes provided in the request
+            plan = {
+                'id': 'temp',
+                'recipes': recipes_dict
+            }
         else:
             plan = PlanningManager.get_current_plan()
 

@@ -36,7 +36,7 @@ class PlanningManager:
             json.dump(plans, f, indent=2)
 
     @staticmethod
-    def create_meal_plan(recipes_dict):
+    def create_meal_plan(recipes_dict, start_date=None, end_date=None):
         """
         Create a new meal plan for Monday-Friday.
 
@@ -47,14 +47,18 @@ class PlanningManager:
                 ...
                 'friday': recipe_object
             }
+            start_date: Optional start date (YYYY-MM-DD format, should be a Monday)
+            end_date: Optional end date (YYYY-MM-DD format, should be a Friday)
 
         Returns:
-            plan dict with id, created_date, recipes
+            plan dict with id, created_date, start_date, end_date, recipes
         """
         plan = {
             'id': str(uuid4()),
             'created_date': datetime.now().isoformat(),
-            'recipes': recipes_dict,  # Store recipe objects
+            'start_date': start_date,  # YYYY-MM-DD format (Monday)
+            'end_date': end_date,      # YYYY-MM-DD format (Friday)
+            'recipes': recipes_dict,   # Store recipe objects
             'days': list(recipes_dict.keys())  # ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
         }
 

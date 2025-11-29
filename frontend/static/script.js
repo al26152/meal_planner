@@ -1183,6 +1183,48 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const planningDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
     let currentPlan = {};
+    let selectedWeekStartDate = null;
+
+    // Initialize date picker
+    const weekStartDateInput = document.getElementById('weekStartDate');
+    if (weekStartDateInput) {
+        // Set default to this week's Monday
+        const today = new Date();
+        const monday = new Date(today);
+        monday.setDate(today.getDate() - today.getDay() + 1);
+        const dateStr = monday.toISOString().split('T')[0];
+        weekStartDateInput.value = dateStr;
+        selectedWeekStartDate = dateStr;
+
+        // Update dates when date picker changes
+        weekStartDateInput.addEventListener('change', (e) => {
+            selectedWeekStartDate = e.target.value;
+            updateDayDates();
+        });
+    }
+
+    // Function to update day dates display
+    function updateDayDates() {
+        if (!selectedWeekStartDate) return;
+
+        try {
+            const startDate = new Date(selectedWeekStartDate);
+            planningDays.forEach((day, index) => {
+                const dayDate = new Date(startDate);
+                dayDate.setDate(startDate.getDate() + index);
+                const dateStr = dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                const dateElement = document.getElementById(`${day}Date`);
+                if (dateElement) {
+                    dateElement.textContent = `(${dateStr})`;
+                }
+            });
+        } catch (error) {
+            console.error('Error updating day dates:', error);
+        }
+    }
+
+    // Initialize day dates on load
+    updateDayDates();
 
     // Load saved recipes for selection
     async function loadRecipesForPlanning() {
@@ -1474,7 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Generate meal plan text export
-    document.getElementById('exportMealPlanBtn').addEventListener('click', () => {
+    document.getElementById('exportMealPlanBtn').addEventListener('click', async () => {
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
         let mealsToExport = {};
         let mealCount = 0;
@@ -1504,10 +1546,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Generate meal plan text
-        const today = new Date();
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay() + 1); // Get Monday of this week
+        // Use selected week start date (with fallback to this week)
+        let weekStart = new Date();
+        if (selectedWeekStartDate) {
+            weekStart = new Date(selectedWeekStartDate);
+        } else {
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1); // Get Monday of this week
+        }
 
         let mealPlanText = 'WEEKLY MEAL PLAN\n';
         mealPlanText += '================\n\n';
@@ -1517,7 +1562,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dayIndex = days.indexOf(day);
             const dayDate = new Date(weekStart);
             dayDate.setDate(weekStart.getDate() + dayIndex);
-            const dateStr = dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dateStr = dayDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 
             const dayName = day.charAt(0).toUpperCase() + day.slice(1);
 
@@ -1528,8 +1573,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        mealPlanText += `\nGenerated: ${new Date().toLocaleString()}\n`;
+        mealPlanText += `\nWeek Starting: ${weekStart.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}\n`;
+        mealPlanText += `Generated: ${new Date().toLocaleString()}\n`;
         mealPlanText += `Meals planned: ${mealCount}/5 days\n`;
+
+        // Also save the meal plan to backend with dates
+        try {
+            const response = await fetch('/api/planning', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    recipes: currentPlan,
+                    start_date: selectedWeekStartDate
+                })
+            });
+
+            const data = await response.json();
+            if (!response.ok) {
+                console.warn('Warning: Could not save plan to backend:', data.error);
+            }
+        } catch (error) {
+            console.warn('Warning: Could not save plan to backend:', error);
+        }
 
         // Display meal plan
         document.getElementById('mealPlanText').value = mealPlanText;

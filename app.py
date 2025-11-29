@@ -748,14 +748,26 @@ def create_meal_plan_endpoint():
     try:
         data = request.json
         recipes_dict = data.get('recipes', {})
+        week_start_date = data.get('start_date')  # YYYY-MM-DD format (Monday)
 
         # Validate we have all 5 days
         required_days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
         if not all(day in recipes_dict for day in required_days):
             return jsonify({'error': 'Please select recipes for all 5 days (Monday-Friday)'}), 400
 
-        # Create the meal plan
-        plan = PlanningManager.create_meal_plan(recipes_dict)
+        # Calculate end_date if start_date is provided
+        end_date = None
+        if week_start_date:
+            try:
+                from datetime import datetime, timedelta
+                start = datetime.strptime(week_start_date, '%Y-%m-%d')
+                end = start + timedelta(days=4)  # Friday is 4 days after Monday
+                end_date = end.strftime('%Y-%m-%d')
+            except ValueError:
+                return jsonify({'error': 'Invalid date format. Use YYYY-MM-DD'}), 400
+
+        # Create the meal plan with dates
+        plan = PlanningManager.create_meal_plan(recipes_dict, start_date=week_start_date, end_date=end_date)
 
         return jsonify({
             'success': True,
